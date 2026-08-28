@@ -81,14 +81,14 @@ video::-webkit-media-controls-start-playback-button,
 video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important;opacity:0!important}
 video{pointer-events:none}
 .hero-still,.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy)}
-.hero-still{z-index:2;transition:opacity .12s linear}
+.hero-still{z-index:2}
 /* the still hides while a clip plays; a paused clip is never on screen, so Safari has nothing to badge */
 .hero-bg.playing .hero-still{opacity:0}
 .hero-v{opacity:0;z-index:1}
 .hero-v.show{opacity:1}
 .hero-v.show{opacity:1}
-.hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:1;opacity:.9}
-.hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
+.hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:4;opacity:.9}
+.hero-bg::after{content:"";position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
 .hero-inner{position:absolute;inset:0;z-index:2;max-width:var(--w);margin:0 auto;padding:110px var(--pad) 52px}
 
 .phase{position:absolute;inset:110px var(--pad) 52px;z-index:1;opacity:0;pointer-events:none;transform:translate3d(70px,0,0);will-change:opacity,transform}
@@ -162,11 +162,15 @@ section.block.dark{border-top:1px solid var(--s-line)}
 /* motion runs under the whole block; the veil keeps the copy fully readable */
 #about{position:relative;overflow:hidden;isolation:isolate}
 .amb{position:absolute;inset:0;z-index:0;pointer-events:none}
-.amb video{width:100%;height:100%;object-fit:cover;transform:scale(1.18);opacity:.62}
+.amb-still,.amb video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.18);opacity:.62}
+.amb video{opacity:0}
+/* the clip takes over only once it is actually playing; a paused clip never shows, so no play badge */
+.amb.live .amb-still{opacity:0}
+.amb.live video{opacity:.62}
 .amb::after{content:"";position:absolute;inset:0;z-index:1;
   background:linear-gradient(180deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,.42) 45%,rgba(255,255,255,.64) 100%)}
 /* narrow screens: show the bloom whole instead of blowing it up to fill a tall column */
-@media(max-width:860px){.amb video{transform:scale(1.7);object-fit:contain;object-position:50% 32%;opacity:.55}
+@media(max-width:860px){.amb video,.amb-still{transform:scale(1.7);object-fit:contain;object-position:50% 32%}.amb-still,.amb.live video{opacity:.55}
   .amb::after{background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,.5) 34%,rgba(255,255,255,.78) 100%)}}
 
 /* ambient loop under the copy: blurred, veiled, never louder than the text */
@@ -635,7 +639,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </header>
 
 <section class="block light" id="about">
-  <div class="amb" aria-hidden="true"><video id="amb-video" autoplay muted loop playsinline preload="auto" src="media/bloom.mp4"></video></div>
+  <div class="amb" aria-hidden="true"><img class="amb-still" src="img/bloom-still.jpg" alt="" decoding="async"><video id="amb-video" muted loop playsinline preload="auto" src="media/bloom.mp4"></video></div>
   <div class="wrap ab">
     <div class="ab-left rv">
       <div class="ab-card ab-head">
@@ -1024,14 +1028,19 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     if(rm){paint(prev,step,1);if(window.__vid)window.__vid.setStill(step);return}
     lock=true;if(anim){cancelAnimationFrame(anim);anim=null}
     var vFrom=SEG[prev]||0,vTo=SEG[step]||0,dur=Math.max(500,Math.abs(vTo-vFrom)*1000);
-    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo,step);else if(window.__vid)window.__vid.setStill(step);
-    var t0=null;
-    anim=requestAnimationFrame(function frame(ts){
-      if(t0===null)t0=ts;var k=Math.min(1,(ts-t0)/dur);
-      paint(prev,step,ease(k));
-      if(k>0.55&&lock){lock=false;acc=0;armed=true}
-      if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0}
-    });
+    var startText=function(){
+      var t0=null;
+      anim=requestAnimationFrame(function frame(ts){
+        if(t0===null)t0=ts;var k=Math.min(1,(ts-t0)/dur);
+        paint(prev,step,ease(k));
+        if(k>0.55&&lock){lock=false;acc=0;armed=true}
+        if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0}
+      });
+    };
+    // the text timeline is started by the video the instant its first frame is painted,
+    // so picture and copy always move together; without video, start it now
+    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo,step,startText);
+    else{if(window.__vid)window.__vid.setStill(step);startText()}
   }
   addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40)},{passive:true});
   function atTop(){var se=document.scrollingElement||document.documentElement;return (window.scrollY||0)<4&&se.scrollTop<4}
@@ -1102,7 +1111,7 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     }
     window.__vid={
       dur:function(){return DUR||0},
-      run:function(from,to,idx){
+      run:function(from,to,idx,onFirstFrame){
         if(!DUR)return;cancel();try{F.pause();R.pause()}catch(e){}
         var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
         var start=fwd?from:DUR-from;stopAt=fwd?to:DUR-to;onDone=idx;
@@ -1111,12 +1120,12 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
           active.classList.add('show');other.classList.remove('show');
           var pr=active.play();
           var go=function(){
-            // reveal the clip only when it is really rendering frames
-            var shown=false;function reveal(){if(shown)return;shown=true;bg.classList.add('playing')}
-            if(active.requestVideoFrameCallback){active.requestVideoFrameCallback(reveal);setTimeout(reveal,120)}else reveal();
+            // reveal the clip — and only then start the text — on the first painted frame
+            var shown=false;function reveal(){if(shown)return;shown=true;bg.classList.add('playing');if(onFirstFrame)onFirstFrame()}
+            if(active.requestVideoFrameCallback){active.requestVideoFrameCallback(reveal);setTimeout(reveal,150)}else reveal();
             raf=requestAnimationFrame(poll);
           };
-          if(pr&&pr.then)pr.then(go).catch(function(){finish()});else go();
+          if(pr&&pr.then)pr.then(go).catch(function(){finish();if(onFirstFrame)onFirstFrame()});else go();
         }
         if(active.readyState>=2)begin();else active.addEventListener('loadeddata',begin,{once:true});
       },
@@ -1132,7 +1141,10 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     A.load();
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
     // never depends on event ordering: re-arm from readyState on every hook that could matter
-    function keep(){if(A.readyState<2||!A.paused)return;var p=A.play();if(p&&p.catch)p.catch(function(){})}
+    var box=A.parentNode;
+    A.addEventListener('playing',function(){box.classList.add('live')});
+    A.addEventListener('pause',function(){box.classList.remove('live')});
+    function keep(){if(A.readyState<2||!A.paused)return;var p=A.play();if(p&&p.catch)p.catch(function(){box.classList.remove('live')})}
     ['loadeddata','canplay','canplaythrough','waiting','stalled'].forEach(function(ev){A.addEventListener(ev,keep)});
     // over a slow network readyState can cross 2 between any two hooks — poll until it plays, then stop
     var tries=0,poll=setInterval(function(){keep();if(!A.paused||++tries>120)clearInterval(poll)},250);
