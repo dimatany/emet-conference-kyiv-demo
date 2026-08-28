@@ -80,7 +80,12 @@ video::-webkit-media-controls-panel-container,
 video::-webkit-media-controls-start-playback-button,
 video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important;opacity:0!important}
 video{pointer-events:none}
-.hero-v{backface-visibility:hidden;transform:translateZ(0);position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy);opacity:0;transition:opacity .14s linear}
+.hero-still,.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy)}
+.hero-still{z-index:2;transition:opacity .12s linear}
+/* the still hides while a clip plays; a paused clip is never on screen, so Safari has nothing to badge */
+.hero-bg.playing .hero-still{opacity:0}
+.hero-v{opacity:0;z-index:1}
+.hero-v.show{opacity:1}
 .hero-v.show{opacity:1}
 .hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:1;opacity:.9}
 .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
@@ -474,7 +479,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   .eyebrow-hero{text-shadow:0 1px 8px rgba(4,18,28,.9)}
   .p2 .row p{color:#E8F3F4}
   .fact>span{color:#C2D6DB}
-  .hero-bg video{object-position:60% 22%}
+  .hero-bg video,.hero-still{object-position:60% 22%}
   .phase{justify-content:flex-end;max-height:62%;top:auto;bottom:40px}
   .eyebrow-hero{top:74px;font-size:10.5px}
   .phase{display:flex;flex-direction:column;justify-content:flex-end;gap:18px;inset:96px var(--pad) 40px}
@@ -577,8 +582,9 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
-      <video id="vidF" class="hero-v" autoplay muted playsinline preload="auto" src="media/hero-fwd.mp4"></video>
-      <video id="vidR" class="hero-v" autoplay muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
+      <img id="heroStill" class="hero-still" src="img/frame-0.jpg" alt="" decoding="async" fetchpriority="high">
+      <video id="vidF" class="hero-v" muted playsinline preload="auto" src="media/hero-fwd.mp4"></video>
+      <video id="vidR" class="hero-v" muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -917,6 +923,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </footer>
 
 <script>
+window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
 (function(){
   // ---- data: speakers (one place to edit) ----
   var SPEAKERS=[
@@ -1014,16 +1021,16 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
     if(unlockT)clearTimeout(unlockT);
     unlockT=setTimeout(function(){lock=false;acc=0;armed=true},Math.round(STEP_MS*0.62));
     var prev=step;step=n;chrome();
-    if(rm){paint(prev,step,1);return}
+    if(rm){paint(prev,step,1);if(window.__vid)window.__vid.setStill(step);return}
     lock=true;if(anim){cancelAnimationFrame(anim);anim=null}
     var vFrom=SEG[prev]||0,vTo=SEG[step]||0,dur=Math.max(500,Math.abs(vTo-vFrom)*1000);
-    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo);
+    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo,step);else if(window.__vid)window.__vid.setStill(step);
     var t0=null;
     anim=requestAnimationFrame(function frame(ts){
       if(t0===null)t0=ts;var k=Math.min(1,(ts-t0)/dur);
       paint(prev,step,ease(k));
       if(k>0.55&&lock){lock=false;acc=0;armed=true}
-      if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0;if(window.__vid)window.__vid.settle(vTo)}
+      if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0}
     });
   }
   addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40)},{passive:true});
@@ -1052,97 +1059,89 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   chrome();paint(0,0,1);
   document.addEventListener('visibilitychange',function(){if(!document.hidden){if(anim){cancelAnimationFrame(anim);anim=null}lock=false;paint(step,step,1)}});
 
-  // hero clips: forward + a reversed copy. Both directions are real playback (never scrubbing),
-  // which is what makes the motion smooth; the reversed copy makes "back" look like rewind.
+  // hero clips: forward + a reversed copy, both real playback. Between steps the banner shows a
+  // still frame cut from the exact target time — never a paused video — so the resting frame is
+  // right by construction and Safari has nothing to stamp its play badge on.
+  // Stop mechanism (measured in Safari: 11 ms overrun): poll currentTime on rAF. A backgrounded
+  // tab freezes rAF, so visibilitychange parks the banner on its still the moment that happens.
+  function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);
+    for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}));}
   (function(){
-    var F=document.getElementById('vidF'),R=document.getElementById('vidR'),
-        eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
-    if(!F||!R)return;
-    function blob(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);
-      for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
-      return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}));}
-    // inlined build feeds the players from base64; the file build already has real src
-    if(eF&&eR){F.src=blob(eF.textContent);R.src=blob(eR.textContent);eF.remove();eR.remove()}
-    (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA');
-      if(!A)return;
-      if(eA){A.src=blob(eA.textContent);eA.remove()}
-      A.load();
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-      // never leave this clip paused: Safari stamps its own play badge on a paused video
-      function keep(){var p=A.play();if(p&&p.catch)p.catch(function(){})}
-      A.addEventListener('loadeddata',keep,{once:true});
-      A.addEventListener('pause',function(){if(!document.hidden)keep()});
-      document.addEventListener('visibilitychange',function(){document.hidden?A.pause():keep()});
-      ['pointerdown','touchstart','keydown'].forEach(function(ev){
-        addEventListener(ev,function once(){keep();removeEventListener(ev,once)},{passive:true});
-      });
-      keep();
-    })();
-    F.loop=R.loop=false;F.muted=R.muted=true;
-    F.setAttribute('playsinline','');R.setAttribute('playsinline','');
-    // Safari unlocks a video only after it has actually played once — start and park it
-    function prime(v){
-      var p=v.play();
-      if(p&&p.then)p.then(function(){v.pause();try{v.currentTime=0}catch(e){}}).catch(function(){});
-      else{try{v.pause();v.currentTime=0}catch(e){}}
+    var F=document.getElementById('vidF'),R=document.getElementById('vidR'),bg=document.querySelector('.hero-bg'),
+        still=document.getElementById('heroStill'),eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
+    if(!F||!R||!still)return;
+    var STILLS=window.__stills||[],base={F:F.getAttribute('src')||'',R:R.getAttribute('src')||''};
+    if(eF&&eR){base.F=b64url(eF.textContent);base.R=b64url(eR.textContent);F.src=base.F;R.src=base.R;eF.remove();eR.remove()}
+    STILLS.forEach(function(u){var im=new Image();im.src=u});
+    F.loop=R.loop=false;F.muted=R.muted=true;F.load();R.load();
+
+    var DUR=0,active=F,raf=null,stopAt=0,onDone=null,unlocked=false,FRAME=1/24;
+    F.addEventListener('loadedmetadata',function(){DUR=F.duration});
+    // Safari lets script drive play() only after one real play on the element — do it invisibly
+    function unlock(){
+      if(unlocked)return;unlocked=true;
+      [F,R].forEach(function(v){var p=v.play();if(p&&p.then)p.then(function(){v.pause()}).catch(function(){})});
     }
-    F.addEventListener('loadeddata',function(){prime(F);F.classList.add('show')},{once:true});
-    if(F.readyState>=2){prime(F);F.classList.add('show')}
-    R.addEventListener('loadeddata',function(){prime(R)},{once:true});
-    ['pointerdown','touchstart','keydown'].forEach(function(ev){
-      addEventListener(ev,function once(){prime(F);prime(R);['pointerdown','touchstart','keydown'].forEach(function(e2){removeEventListener(e2,once)})},{passive:true});
-    });
-    F.load();R.load();
-    var DUR=0,raf=null,stop=0,active=F,targetT=0;
-    F.addEventListener('loadedmetadata',function(){DUR=F.duration;F.currentTime=0});
-    R.addEventListener('loadedmetadata',function(){R.currentTime=0});
-    function halt(){try{clearWatch()}catch(e){}try{active.pause()}catch(e){}}
-    // stop the segment from the video's own clock: Safari throttles frame callbacks,
-    // and a missed stop made the clip overrun and jam the next step
-    var vcb=null,guard=null;
-    function clearWatch(){
-      if(raf){cancelAnimationFrame(raf);raf=null}
-      if(guard){clearTimeout(guard);guard=null}
-      if(vcb&&active.cancelVideoFrameCallback){try{active.cancelVideoFrameCallback(vcb)}catch(e){}vcb=null}
-      active.removeEventListener('timeupdate',onTime);
+    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,unlock,{passive:true,once:true})});
+
+    function cancel(){if(raf){cancelAnimationFrame(raf);raf=null}}
+    function finish(){
+      cancel();try{active.pause()}catch(e){}
+      var idx=onDone;onDone=null;
+      var done=function(){bg.classList.remove('playing');setTimeout(function(){F.classList.remove('show');R.classList.remove('show')},160)};
+      if(idx!==null&&STILLS[idx]&&still.src.indexOf(STILLS[idx])<0){
+        // swap the still only once the new frame is decoded — no flash of the old frame
+        var im=new Image();im.onload=function(){still.src=STILLS[idx];done()};im.onerror=done;im.src=STILLS[idx];
+      }else done();
     }
-    function land(t){
-      // the reversed copy can end a frame short — the forward clip is the source of truth
-      try{R.currentTime=Math.max(0,Math.min(DUR-t,DUR-0.02))}catch(e){}
-      function showF(){F.classList.add('show');R.classList.remove('show')}
-      if(Math.abs(F.currentTime-t)<0.04){showF();return}
-      F.addEventListener('seeked',function once(){F.removeEventListener('seeked',once);showF()});
-      try{F.currentTime=Math.max(0,Math.min(t,DUR-0.02))}catch(e){showF()}
-      setTimeout(showF,220);
-    }
-    function reachedStop(){
-      active.pause();try{active.currentTime=stop}catch(e){}
-      clearWatch();
-      land(targetT);
-    }
-    function onTime(){ if(active.currentTime>=stop-0.03) reachedStop(); }
-    function watch(){
-      if(active.currentTime>=stop-0.03){reachedStop();return}
-      if(active.requestVideoFrameCallback){vcb=active.requestVideoFrameCallback(watch)}
-      else{raf=requestAnimationFrame(watch)}
+    function poll(){
+      if(active.paused||active.ended){finish();return}
+      if(active.currentTime>=stopAt-FRAME*0.5){finish();return}
+      raf=requestAnimationFrame(poll);
     }
     window.__vid={
       dur:function(){return DUR||0},
-      run:function(from,to){
-        if(!DUR)return;halt();
+      run:function(from,to,idx){
+        if(!DUR)return;cancel();try{F.pause();R.pause()}catch(e){}
         var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
-        var start=fwd?from:DUR-from;stop=fwd?to:DUR-to;targetT=to;
-        try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
-        active.classList.add('show');other.classList.remove('show');
-        var pr=active.play();if(pr&&pr.catch)pr.catch(function(){});
-        active.addEventListener('timeupdate',onTime);
-        watch();
-        // last-resort stop, in case neither callback fires
-        guard=setTimeout(reachedStop,Math.max(400,Math.abs(stop-start)*1000+260));
+        var start=fwd?from:DUR-from;stopAt=fwd?to:DUR-to;onDone=idx;
+        function begin(){
+          try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
+          active.classList.add('show');other.classList.remove('show');
+          var pr=active.play();
+          var go=function(){
+            // reveal the clip only when it is really rendering frames
+            var shown=false;function reveal(){if(shown)return;shown=true;bg.classList.add('playing')}
+            if(active.requestVideoFrameCallback){active.requestVideoFrameCallback(reveal);setTimeout(reveal,120)}else reveal();
+            raf=requestAnimationFrame(poll);
+          };
+          if(pr&&pr.then)pr.then(go).catch(function(){finish()});else go();
+        }
+        if(active.readyState>=2)begin();else active.addEventListener('loadeddata',begin,{once:true});
       },
-      settle:function(t){halt();land(t)}
+      setStill:function(idx){if(STILLS[idx])still.src=STILLS[idx]}
     };
-    document.addEventListener('visibilitychange',function(){if(document.hidden)halt()});
+    document.addEventListener('visibilitychange',function(){if(document.hidden)finish()});
+  })();
+
+  // bloom: keeps playing while on screen — a paused clip would get Safari's badge
+  (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA');
+    if(!A)return;
+    if(eA){A.src=b64url(eA.textContent);eA.remove()}
+    A.load();
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    // never depends on event ordering: re-arm from readyState on every hook that could matter
+    function keep(){if(A.readyState<2||!A.paused)return;var p=A.play();if(p&&p.catch)p.catch(function(){})}
+    ['loadeddata','canplay','canplaythrough','waiting','stalled'].forEach(function(ev){A.addEventListener(ev,keep)});
+    requestAnimationFrame(keep);setTimeout(keep,300);setTimeout(keep,1500);
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting)keep()})},{threshold:0}).observe(A);
+    }
+    A.addEventListener('pause',function(){if(!document.hidden)keep()});
+    document.addEventListener('visibilitychange',function(){document.hidden?A.pause():keep()});
+    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,keep,{passive:true,once:true})});
+    keep();
   })();
 
   // ---- mobile menu ----
