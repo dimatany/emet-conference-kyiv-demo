@@ -80,7 +80,7 @@ video::-webkit-media-controls-panel-container,
 video::-webkit-media-controls-start-playback-button,
 video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important;opacity:0!important}
 video{pointer-events:none}
-.hero-v{backface-visibility:hidden;transform:translateZ(0);position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy);opacity:0}
+.hero-v{backface-visibility:hidden;transform:translateZ(0);position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy);opacity:0;transition:opacity .14s linear}
 .hero-v.show{opacity:1}
 .hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:1;opacity:.9}
 .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
@@ -629,7 +629,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </header>
 
 <section class="block light" id="about">
-  <div class="amb" aria-hidden="true"><video id="amb-video" autoplay muted loop playsinline preload="none" src="media/bloom.mp4"></video></div>
+  <div class="amb" aria-hidden="true"><video id="amb-video" autoplay muted loop playsinline preload="auto" src="media/bloom.mp4"></video></div>
   <div class="wrap ab">
     <div class="ab-left rv">
       <div class="ab-card ab-head">
@@ -1125,7 +1125,12 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
         // last-resort stop, in case neither callback fires
         guard=setTimeout(reachedStop,Math.max(400,Math.abs(stop-start)*1000+260));
       },
-      settle:function(t){halt();var fwd=active===F;try{active.currentTime=fwd?t:DUR-t}catch(e){}}
+      settle:function(t){
+        halt();var fwd=active===F;
+        try{active.currentTime=fwd?t:DUR-t}catch(e){}
+        // pre-seek the other clip to the same moment: the next step starts instantly
+        var other=fwd?R:F;try{other.currentTime=fwd?DUR-t:t}catch(e){}
+      }
     };
     document.addEventListener('visibilitychange',function(){if(document.hidden)halt()});
   })();
