@@ -1008,34 +1008,50 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   var step=0,lock=false,anim=null,acc=0,lastT=0,armed=true;
   var SEG=[0,1.7,3.4],STEP_MS=1150,IN_X=70,OUT_X=-50;
   window.__step=0;window.__heroP=0;
-  function ease(t){return t}  // linear: matches the clip playing at its own speed
+  function ease(t){return t}  // identity: the text sits exactly on the clip's progress
   function paint(prev,next,e){
     for(var i=0;i<phases.length;i++){var ph=phases[i];
       if(i===next){ph.style.opacity=e.toFixed(3);ph.style.transform='translate3d('+(IN_X*(1-e)).toFixed(1)+'px,0,0)'}
       else if(i===prev){ph.style.opacity=(1-e).toFixed(3);ph.style.transform='translate3d('+(OUT_X*e).toFixed(1)+'px,0,0)'}
       else{ph.style.opacity='0';ph.style.transform='translate3d('+IN_X+'px,0,0)'}
       ph.classList.toggle('on',i===next&&e>0.5);
+      if(i!==next&&i!==prev)ph.style.opacity='0';
     }
 
   }
   function chrome(){dots.forEach(function(d,i){d.classList.toggle('on',i===step)});hint.style.opacity=step>=2?0:1;window.__step=step;window.__heroP=step/2}
   var unlockT=null;
   function go(n){
-    if(lock)return;n=Math.max(0,Math.min(2,n));if(n===step)return;
+    n=Math.max(0,Math.min(2,n));if(n===step)return;
     if(unlockT)clearTimeout(unlockT);
     unlockT=setTimeout(function(){lock=false;acc=0;armed=true},Math.round(STEP_MS*0.62));
+    // take over any move in flight: stop its text, park its clip on the still, clear all phases
+    if(anim){cancelAnimationFrame(anim);anim=null}
+    if(window.__vid&&window.__vid.abort)window.__vid.abort();
     var prev=step;step=n;chrome();
-    if(rm){paint(prev,step,1);if(window.__vid)window.__vid.setStill(step);return}
-    lock=true;if(anim){cancelAnimationFrame(anim);anim=null}
+    document.documentElement.setAttribute('data-hero-busy','1');
+    if(rm){paint(prev,step,1);if(window.__vid)window.__vid.setStill(step);document.documentElement.removeAttribute('data-hero-busy');return}
+    lock=true;
     var vFrom=SEG[prev]||0,vTo=SEG[step]||0,dur=Math.max(500,Math.abs(vTo-vFrom)*1000);
     var startText=function(){
-      var t0=null;
-      anim=requestAnimationFrame(function frame(ts){
-        if(t0===null)t0=ts;var k=Math.min(1,(ts-t0)/dur);
+      var t0=null,useVideo=!!(window.__vid&&window.__vid.dur()>0);
+      var tick=function(ts){
+        if(t0===null)t0=ts;
+        var k=null;
+        if(useVideo&&window.__vidProgress){var vp=window.__vidProgress();if(vp!==null)k=vp}
+        if(k===null){ // no clip running: either it has parked (finish the text) or there is no video (wall clock)
+          k=(useVideo&&t0!==null&&(ts-t0)>150)?1:Math.min(1,(ts-t0)/dur);
+        }
         paint(prev,step,ease(k));
         if(k>0.55&&lock){lock=false;acc=0;armed=true}
-        if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0}
-      });
+        if(k<1){anim=requestAnimationFrame(tick)}else{anim=null;lock=false;acc=0;if(!useVideo)document.documentElement.removeAttribute('data-hero-busy')}
+      };
+      anim=requestAnimationFrame(tick);
+      // also advance from the video clock while rAF is throttled
+      var onT=function(){if(anim!==null)tick(performance.now())};
+      [document.getElementById('vidF'),document.getElementById('vidR')].forEach(function(v){if(v)v.addEventListener('timeupdate',onT)});
+      var stopT=function(){[document.getElementById('vidF'),document.getElementById('vidR')].forEach(function(v){if(v)v.removeEventListener('timeupdate',onT)})};
+      setTimeout(stopT,dur+800);
     };
     // the text timeline is started by the video the instant its first frame is painted,
     // so picture and copy always move together; without video, start it now
@@ -1095,26 +1111,41 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,unlock,{passive:true,once:true})});
 
     function cancel(){if(raf){cancelAnimationFrame(raf);raf=null}}
+    // expose progress of the running clip so the text can follow the picture, not a wall clock
+    window.__vidProgress=function(){if(!active||onDone===null||!DUR)return null;var fwd=active===F;var t=fwd?active.currentTime:DUR-active.currentTime;var a=Math.min(runFrom,runTo),b=Math.max(runFrom,runTo);return Math.max(0,Math.min(1,(t-a)/((b-a)||1)))};
+    var runFrom=0,runTo=0;
     function finish(){
       cancel();try{active.pause()}catch(e){}
       var idx=onDone;onDone=null;
-      var done=function(){bg.classList.remove('playing');setTimeout(function(){F.classList.remove('show');R.classList.remove('show')},160)};
+      var done=function(){bg.classList.remove('playing');F.classList.remove('show');R.classList.remove('show');document.documentElement.removeAttribute('data-hero-busy')};
       if(idx!==null&&STILLS[idx]&&still.src.indexOf(STILLS[idx])<0){
         // swap the still only once the new frame is decoded — no flash of the old frame
         var im=new Image();im.onload=function(){still.src=STILLS[idx];done()};im.onerror=done;im.src=STILLS[idx];
       }else done();
     }
-    function poll(){
+    function check(){
+      if(!active||onDone===null)return;
       if(active.paused||active.ended){finish();return}
-      if(active.currentTime>=stopAt-FRAME*0.5){finish();return}
+      // rAF alive: stop within half a frame. Throttled tab (timeupdate every ~250 ms): stop early rather
+      // than overrun — the still frame is what the visitor sees at rest, so an early cut is invisible.
+      var margin=rafAlive?FRAME*0.5:0.26;
+      if(active.currentTime>=stopAt-margin){finish();return}
       raf=requestAnimationFrame(poll);
     }
+    var rafAlive=true,lastRaf=performance.now();
+    function poll(){raf=null;lastRaf=performance.now();rafAlive=true;check()}
+    // if rAF has not ticked for a while the tab is throttled — switch to the safe margin
+    F.addEventListener('timeupdate',function(){rafAlive=(performance.now()-lastRaf)<200});
+    R.addEventListener('timeupdate',function(){rafAlive=(performance.now()-lastRaf)<200});
+    // timeupdate keeps firing in a throttled/background tab (~4/s) — the stop never depends on rAF alone
+    F.addEventListener('timeupdate',check);R.addEventListener('timeupdate',check);
+    F.addEventListener('ended',check);R.addEventListener('ended',check);
     window.__vid={
       dur:function(){return DUR||0},
       run:function(from,to,idx,onFirstFrame){
         if(!DUR)return;cancel();try{F.pause();R.pause()}catch(e){}
         var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
-        var start=fwd?from:DUR-from;stopAt=fwd?to:DUR-to;onDone=idx;
+        var start=fwd?from:DUR-from;stopAt=fwd?to:DUR-to;onDone=idx;runFrom=from;runTo=to;
         function begin(){
           try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
           active.classList.add('show');other.classList.remove('show');
@@ -1129,13 +1160,15 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
         }
         if(active.readyState>=2)begin();else active.addEventListener('loadeddata',begin,{once:true});
       },
-      setStill:function(idx){if(STILLS[idx])still.src=STILLS[idx]}
+      setStill:function(idx){if(STILLS[idx])still.src=STILLS[idx]},
+      abort:function(){cancel();onDone=null;try{F.pause();R.pause()}catch(e){}bg.classList.remove('playing');F.classList.remove('show');R.classList.remove('show')}
     };
     document.addEventListener('visibilitychange',function(){if(document.hidden)finish()});
   })();
 
-  // bloom: plays only while its section is on screen, so it never competes with the banner
-  // for the decoder; while paused it is hidden behind a still, so Safari has nothing to badge.
+  // bloom: plays only while its section is on screen (never competes with the banner for the decoder);
+  // paused it hides behind a still, so Safari has nothing to badge. Purely event-driven — Safari
+  // throttles timers in a background tab, so nothing here waits on a tick.
   (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA'),box=A&&A.parentNode;
     if(!A)return;
     if(eA){A.src=b64url(eA.textContent);eA.remove()}
@@ -1148,16 +1181,12 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
       if(!wanted||A.readyState<2||!A.paused)return;
       var p=A.play();if(p&&p.catch)p.catch(function(){box.classList.remove('live')});
     }
-    // no reliance on event order: while the clip is wanted and not yet playing, keep asking
-    setInterval(tryPlay,300);
-    ['loadeddata','canplay','canplaythrough'].forEach(function(ev){A.addEventListener(ev,tryPlay)});
-    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,tryPlay,{passive:true})});
+    ['loadeddata','canplay','canplaythrough','loadedmetadata'].forEach(function(ev){A.addEventListener(ev,tryPlay)});
+    ['pointerdown','touchstart','keydown','wheel','scroll'].forEach(function(ev){addEventListener(ev,tryPlay,{passive:true})});
     document.addEventListener('visibilitychange',function(){if(document.hidden){A.pause()}else tryPlay()});
+    addEventListener('focus',tryPlay);
     if('IntersectionObserver' in window){
-      new IntersectionObserver(function(en){en.forEach(function(e){
-        wanted=e.isIntersecting;
-        if(wanted)tryPlay();else A.pause();
-      })},{threshold:.15}).observe(box);
+      new IntersectionObserver(function(en){en.forEach(function(e){wanted=e.isIntersecting;if(wanted)tryPlay();else A.pause()})},{threshold:.15}).observe(box);
     }else{wanted=true;tryPlay()}
   })();
 
