@@ -1059,7 +1059,8 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   var rafQ=false;
   function frame(){rafQ=false;var p=progress();paint(p);if(!rm)seekTo(p)}
   function req(){if(!rafQ){rafQ=true;requestAnimationFrame(frame)}}
-  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40);req()},{passive:true});
+  // scroll events are already frame-aligned; do the work right here (Safari pauses rAF entirely in a background tab)
+  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40);frame()},{passive:true});
   addEventListener('resize',req);
   // dots jump the page to the middle of a caption's third
   dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){
