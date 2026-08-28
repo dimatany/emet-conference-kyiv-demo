@@ -1000,8 +1000,11 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 
   }
   function chrome(){dots.forEach(function(d,i){d.classList.toggle('on',i===step)});hint.style.opacity=step>=2?0:1;window.__step=step;window.__heroP=step/2}
+  var unlockT=null;
   function go(n){
     if(lock)return;n=Math.max(0,Math.min(2,n));if(n===step)return;
+    if(unlockT)clearTimeout(unlockT);
+    unlockT=setTimeout(function(){lock=false;acc=0;armed=true},Math.round(STEP_MS*0.62));
     var prev=step;step=n;chrome();
     if(rm){paint(prev,step,1);return}
     lock=true;if(anim){cancelAnimationFrame(anim);anim=null}
@@ -1080,9 +1083,26 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
     var DUR=0,raf=null,stop=0,active=F;
     F.addEventListener('loadedmetadata',function(){DUR=F.duration;F.currentTime=0});
     R.addEventListener('loadedmetadata',function(){R.currentTime=0});
-    function halt(){if(raf){cancelAnimationFrame(raf);raf=null}try{active.pause()}catch(e){}}
-    function watch(){if(active.currentTime>=stop-0.02){active.pause();try{active.currentTime=stop}catch(e){}raf=null;return}
-      raf=requestAnimationFrame(watch)}
+    function halt(){try{clearWatch()}catch(e){}try{active.pause()}catch(e){}}
+    // stop the segment from the video's own clock: Safari throttles frame callbacks,
+    // and a missed stop made the clip overrun and jam the next step
+    var vcb=null,guard=null;
+    function clearWatch(){
+      if(raf){cancelAnimationFrame(raf);raf=null}
+      if(guard){clearTimeout(guard);guard=null}
+      if(vcb&&active.cancelVideoFrameCallback){try{active.cancelVideoFrameCallback(vcb)}catch(e){}vcb=null}
+      active.removeEventListener('timeupdate',onTime);
+    }
+    function reachedStop(){
+      active.pause();try{active.currentTime=stop}catch(e){}
+      clearWatch();
+    }
+    function onTime(){ if(active.currentTime>=stop-0.03) reachedStop(); }
+    function watch(){
+      if(active.currentTime>=stop-0.03){reachedStop();return}
+      if(active.requestVideoFrameCallback){vcb=active.requestVideoFrameCallback(watch)}
+      else{raf=requestAnimationFrame(watch)}
+    }
     window.__vid={
       dur:function(){return DUR||0},
       run:function(from,to){
@@ -1092,7 +1112,10 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
         try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
         active.classList.add('show');other.classList.remove('show');
         var pr=active.play();if(pr&&pr.catch)pr.catch(function(){});
-        raf=requestAnimationFrame(watch);
+        active.addEventListener('timeupdate',onTime);
+        watch();
+        // last-resort stop, in case neither callback fires
+        guard=setTimeout(reachedStop,Math.max(400,Math.abs(stop-start)*1000+260));
       },
       settle:function(t){halt();var fwd=active===F;try{active.currentTime=fwd?t:DUR-t}catch(e){}}
     };
