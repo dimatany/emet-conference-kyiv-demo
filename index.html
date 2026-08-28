@@ -1124,7 +1124,7 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     mmenu.hidden=!open;if(veil)veil.hidden=!open;
     burger.setAttribute('aria-expanded',open);
     document.body.classList.toggle('menu-open',open);
-    nav.classList.toggle('solid',open||scrollY>40);   // solid bar while open, so nothing shows through
+    if(open)nav.classList.add('solid');else navState();   // solid bar while open, so nothing shows through
     document.body.style.overflow=open?'hidden':'';
   }
   if(veil)veil.addEventListener('click',function(){setMenu(false)});
