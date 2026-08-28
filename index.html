@@ -590,7 +590,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
       <img id="heroStill" class="hero-still" src="img/frame-0.jpg" alt="" decoding="async" fetchpriority="high">
-      <video id="vidF" class="hero-v" muted playsinline preload="auto" src="media/hero-scrub.mp4"></video>
+      <video id="vidF" class="hero-v" muted playsinline preload="none" src="media/hero-scrub.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -929,7 +929,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </footer>
 
 <script>
-window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
+window.__frames="img/frames/";window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
 (function(){
   // ---- data: speakers (one place to edit) ----
   var SPEAKERS=[
@@ -1012,17 +1012,42 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}))}
   if(eF){F.src=b64url(eF.textContent);eF.remove()} if(eR)eR.remove();
   var lastSeek=-1,ready=false;
+  // Touch devices (iPhone/iPad): iOS will not reliably render seeked frames of a paused video, so the
+  // banner is a frame sequence drawn on a canvas instead — deterministic on every device. The clip is
+  // not downloaded at all there. Desktop keeps the video.
+  var SEQ=!rm&&(matchMedia('(hover:none)').matches||('ontouchstart' in window))&&!!window.__frames;
+  var showFrame=function(){};
+  if(!SEQ){F.preload='auto';try{F.load()}catch(e){}}
+  if(SEQ){
+    F.removeAttribute('src');try{F.load()}catch(e){}F.style.display='none';
+    var cv=document.createElement('canvas');cv.className='hero-v';cv.setAttribute('aria-hidden','true');bg.insertBefore(cv,F);
+    var cx=cv.getContext('2d'),N=90,imgs=[],cur=-1,portrait=null,base='';
+    function okImg(im){return im&&im.complete&&im.naturalWidth>0}
+    function draw(i){var im=imgs[i];if(!okImg(im))return;cur=i;
+      var W=cv.width,H=cv.height,iw=im.naturalWidth,ih=im.naturalHeight,sc=Math.max(W/iw,H/ih),dw=iw*sc,dh=ih*sc;
+      var fx=portrait?0.5:0.62,fy=portrait?0.22:0.3;cx.drawImage(im,(W-dw)*fx,(H-dh)*fy,dw,dh)}
+    function want(p){return Math.round(Math.min(1,p/VID_END)*(N-1))}
+    showFrame=function(p){var i=want(p);if(okImg(imgs[i])){if(i!==cur)draw(i);return}
+      var j=i;while(j>=0&&!okImg(imgs[j]))j--;if(j>=0&&j!==cur)draw(j)};
+    function load(i){if(imgs[i])return;var im=new Image();im.decoding='async';
+      im.onload=function(){if(i===0)onReady();var p=progress();if(want(p)===i||cur<0)showFrame(p)};
+      im.src=base+('00'+(i+1)).slice(-3)+'.webp';imgs[i]=im}
+    var k=0;function pump(){while(k<N&&imgs[k])k++;if(k<N){load(k);k++;setTimeout(pump,12)}}
+    function pick(){var por=innerHeight>innerWidth;if(por===portrait)return;portrait=por;base=window.__frames+(por?'m/':'d/');imgs=[];cur=-1;k=0;load(0);load(want(progress()));setTimeout(pump,200)}
+    function size(){var d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(bg.clientWidth*d)||1;cv.height=Math.round(bg.clientHeight*d)||1;pick();if(cur>=0)draw(cur);else showFrame(progress())}
+    size();addEventListener('resize',size);addEventListener('orientationchange',function(){setTimeout(size,300)});
+  }
   function dur(){return (F.duration&&isFinite(F.duration))?F.duration:0}
   // the src is already in the markup, so metadata/first frame may have arrived before this script ran
   function onReady(){if(ready)return;ready=true;bg.classList.add('ready');seekTo(progress())}
-  if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);
+  if(!SEQ){if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);}
   F.addEventListener('canplay',onReady);
   F.addEventListener('seeked',onReady);
   // events can be missed (Safari fires them before this script on a cached page): poll readiness too
-  var rdyPoll=setInterval(function(){if(ready){clearInterval(rdyPoll);return}if(F.readyState>=2)onReady();else if(F.readyState===0&&F.networkState!==2){try{F.load()}catch(e){}}},400);
+  var rdyPoll=SEQ?0:setInterval(function(){if(ready){clearInterval(rdyPoll);return}if(F.readyState>=2)onReady();else if(F.readyState===0&&F.networkState!==2){try{F.load()}catch(e){}}},400);
   // iOS Safari: a video only loads and renders seeked frames after it has been started by a touch once.
   // On the first touch we play+pause it (muted, inline), then continue scrubbing.
-  var touch=('ontouchstart' in window)||matchMedia('(hover:none)').matches,primed=!touch;
+  var touch=!SEQ&&(('ontouchstart' in window)||matchMedia('(hover:none)').matches),primed=!touch;
   function prime(){
     if(primed)return;primed=true;
     if(F.readyState===0){try{F.load()}catch(e){}}
@@ -1060,7 +1085,7 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     window.__heroP=p;
   }
   var rafQ=false;
-  function frame(){rafQ=false;var p=progress();paint(p);if(!rm)seekTo(p)}
+  function frame(){rafQ=false;var p=progress();paint(p);if(rm)return;if(SEQ)showFrame(p);else seekTo(p)}
   function req(){if(!rafQ){rafQ=true;requestAnimationFrame(frame)}}
   // scroll events are already frame-aligned; do the work right here (Safari pauses rAF entirely in a background tab)
   // the header turns solid only once the hero itself starts leaving the screen (not while scrolling through it)
@@ -1081,7 +1106,11 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     var best=0,bd=9;for(var i=0;i<HOME.length;i++){var d=Math.abs(HOME[i]-p);if(d<bd){bd=d;best=i}}
     if(bd<0.008)return;
     var from=scrollY,to=hero.getBoundingClientRect().top+scrollY+HOME[best]*track,t0=performance.now(),D=Math.min(650,320+bd*900);
-    (function tick(now){var k=Math.min(1,(now-t0)/D);k=1-Math.pow(1-k,3);scrollTo({top:from+(to-from)*k,behavior:'instant'});settleAnim=k<1?requestAnimationFrame(tick):null})(t0);
+    var lastSet=from;
+    (function tick(now){
+      if(Math.abs(scrollY-lastSet)>3){settleAnim=null;return}   // something else moved the page: let it win
+      var k=Math.min(1,(now-t0)/D);k=1-Math.pow(1-k,3);lastSet=Math.round(from+(to-from)*k);
+      scrollTo({top:lastSet,behavior:'instant'});settleAnim=k<1?requestAnimationFrame(tick):null})(t0);
   }
   function scheduleSettle(){if(settleAnim)return;clearTimeout(settleT);settleT=setTimeout(settle,160)}
   addEventListener('scroll',scheduleSettle,{passive:true});
