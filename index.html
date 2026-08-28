@@ -1068,11 +1068,15 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
       if(eA){A.src=blob(eA.textContent);eA.remove()}
       A.load();
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-      if('IntersectionObserver' in window){
-        new IntersectionObserver(function(en){en.forEach(function(e){
-          if(e.isIntersecting){var pr=A.play();if(pr&&pr.catch)pr.catch(function(){})}else{A.pause()}
-        })},{threshold:.05}).observe(A);
-      }else{A.play()}
+      // never leave this clip paused: Safari stamps its own play badge on a paused video
+      function keep(){var p=A.play();if(p&&p.catch)p.catch(function(){})}
+      A.addEventListener('loadeddata',keep,{once:true});
+      A.addEventListener('pause',function(){if(!document.hidden)keep()});
+      document.addEventListener('visibilitychange',function(){document.hidden?A.pause():keep()});
+      ['pointerdown','touchstart','keydown'].forEach(function(ev){
+        addEventListener(ev,function once(){keep();removeEventListener(ev,once)},{passive:true});
+      });
+      keep();
     })();
     F.loop=R.loop=false;F.muted=R.muted=true;
     F.setAttribute('playsinline','');R.setAttribute('playsinline','');
