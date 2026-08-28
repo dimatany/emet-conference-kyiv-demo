@@ -1134,7 +1134,8 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     // never depends on event ordering: re-arm from readyState on every hook that could matter
     function keep(){if(A.readyState<2||!A.paused)return;var p=A.play();if(p&&p.catch)p.catch(function(){})}
     ['loadeddata','canplay','canplaythrough','waiting','stalled'].forEach(function(ev){A.addEventListener(ev,keep)});
-    requestAnimationFrame(keep);setTimeout(keep,300);setTimeout(keep,1500);
+    // over a slow network readyState can cross 2 between any two hooks — poll until it plays, then stop
+    var tries=0,poll=setInterval(function(){keep();if(!A.paused||++tries>120)clearInterval(poll)},250);
     if('IntersectionObserver' in window){
       new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting)keep()})},{threshold:0}).observe(A);
     }
