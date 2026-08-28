@@ -27,8 +27,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 table,td,th{color:inherit;font:inherit}
 html{scroll-behavior:smooth;background:var(--navy)}
-/* anchors land with the coloured block starting right under the fixed nav (its height is measured into --navh) */
-section[id]{scroll-margin-top:var(--navh,72px)}
 body{background:var(--navy);color:var(--s-text);font-family:var(--font);font-weight:400;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
@@ -68,30 +66,16 @@ body.menu-open .nav{background:rgba(8,30,45,.98);backdrop-filter:blur(10px);-web
 @media(max-width:860px){.nav ul{display:none}}
 
 /* HERO — pinned scrollytelling (3 phases over one background) */
-/* the hero is a 300svh track; the stage stays pinned to the top while the page scrolls through it,
-   and the video frame + the three captions are a pure function of how far you have scrolled */
-.hero{position:relative;height:350svh;background:var(--navy);color:#F2FBFA}
-.hero-stage{position:sticky;top:0;height:100svh;overflow:hidden}
-.hero-still,.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy)}
-.hero-still{z-index:2;opacity:1;transition:opacity .25s}
-.hero-bg.ready .hero-still{opacity:0}
-.hero-v{z-index:1;opacity:1}
+.hero{position:relative;height:100svh;background:var(--navy);color:#F2FBFA;overflow:hidden}
+.hero-stage{position:relative;height:100svh;overflow:hidden}
 .hero-bg{position:absolute;inset:0;z-index:0;background:
   radial-gradient(70% 90% at 82% 30%, rgba(67,217,217,.5) 0%, rgba(48,177,190,.24) 30%, rgba(8,30,45,0) 65%),
   radial-gradient(40% 30% at 50% 0%, rgba(67,217,217,.28) 0%, rgba(8,30,45,0) 70%),
   var(--navy)}
-/* Safari paints its own play badge over a paused video — hide every native control */
-video::-webkit-media-controls,
-video::-webkit-media-controls-enclosure,
-video::-webkit-media-controls-panel,
-video::-webkit-media-controls-panel-container,
-video::-webkit-media-controls-start-playback-button,
-video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important;opacity:0!important}
-video{pointer-events:none}
-
+.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy);opacity:0}
 .hero-v.show{opacity:1}
-.hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:4;opacity:.9}
-.hero-bg::after{content:"";position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
+.hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:1;opacity:.9}
+.hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
 .hero-inner{position:absolute;inset:0;z-index:2;max-width:var(--w);margin:0 auto;padding:110px var(--pad) 52px}
 
 .phase{position:absolute;inset:110px var(--pad) 52px;z-index:1;opacity:0;pointer-events:none;transform:translate3d(70px,0,0);will-change:opacity,transform}
@@ -165,15 +149,11 @@ section.block.dark{border-top:1px solid var(--s-line)}
 /* motion runs under the whole block; the veil keeps the copy fully readable */
 #about{position:relative;overflow:hidden;isolation:isolate}
 .amb{position:absolute;inset:0;z-index:0;pointer-events:none}
-.amb-still,.amb video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.18);opacity:.62}
-.amb video{opacity:0}
-/* the clip takes over only once it is actually playing; a paused clip never shows, so no play badge */
-.amb.live .amb-still{opacity:0}
-.amb.live video{opacity:.62}
+.amb video{width:100%;height:100%;object-fit:cover;transform:scale(1.18);opacity:.62}
 .amb::after{content:"";position:absolute;inset:0;z-index:1;
   background:linear-gradient(180deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,.42) 45%,rgba(255,255,255,.64) 100%)}
 /* narrow screens: show the bloom whole instead of blowing it up to fill a tall column */
-@media(max-width:860px){.amb video,.amb-still{transform:scale(1.7);object-fit:contain;object-position:50% 32%}.amb-still,.amb.live video{opacity:.55}
+@media(max-width:860px){.amb video{transform:scale(1.7);object-fit:contain;object-position:50% 32%;opacity:.55}
   .amb::after{background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,.5) 34%,rgba(255,255,255,.78) 100%)}}
 
 /* ambient loop under the copy: blurred, veiled, never louder than the text */
@@ -486,7 +466,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   .eyebrow-hero{text-shadow:0 1px 8px rgba(4,18,28,.9)}
   .p2 .row p{color:#E8F3F4}
   .fact>span{color:#C2D6DB}
-  .hero-bg video,.hero-still{object-position:60% 22%}
+  .hero-bg video{object-position:60% 22%}
   .phase{justify-content:flex-end;max-height:62%;top:auto;bottom:40px}
   .eyebrow-hero{top:74px;font-size:10.5px}
   .phase{display:flex;flex-direction:column;justify-content:flex-end;gap:18px;inset:96px var(--pad) 40px}
@@ -589,8 +569,8 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
-      <img id="heroStill" class="hero-still" src="img/frame-0.jpg" alt="" decoding="async" fetchpriority="high">
-      <video id="vidF" class="hero-v" muted playsinline preload="none" src="media/hero-scrub.mp4"></video>
+      <video id="vidF" class="ph hero-v show" muted playsinline preload="auto" poster="img/hero-poster.jpg" src="media/hero-fwd.mp4"></video>
+      <video id="vidR" class="hero-v" muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -641,7 +621,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </header>
 
 <section class="block light" id="about">
-  <div class="amb" aria-hidden="true"><img class="amb-still" src="img/bloom-still.jpg" alt="" decoding="async"><video id="amb-video" muted loop playsinline preload="auto" src="media/bloom.mp4"></video></div>
+  <div class="amb" aria-hidden="true"><video id="amb-video" muted loop playsinline preload="none" src="media/bloom.mp4"></video></div>
   <div class="wrap ab">
     <div class="ab-left rv">
       <div class="ab-card ab-head">
@@ -929,7 +909,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </footer>
 
 <script>
-window.__frames="img/frames/";window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
+window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
 (function(){
   // ---- data: speakers (one place to edit) ----
   var SPEAKERS=[
@@ -1002,149 +982,106 @@ window.__frames="img/frames/";window.__stills=["img/frame-0.jpg","img/frame-1.jp
     });
   })();
 
-  // ---- hero: scroll-driven. No steps, no wheel handling, no timers. Every frame we read scrollY,
-  // turn it into progress p (0..1 across the hero track), seek the clip to p*duration and set the
-  // three captions from the same p. Trackpad inertia just moves p smoothly; backwards is the same formula.
-  var nav=document.getElementById('nav'),hero=document.querySelector('.hero'),bg=document.querySelector('.hero-bg');
+  // ---- hero: three scroll steps. ONE progress drives the video frame AND the texts,
+  // same duration and easing for both, forwards and backwards — nothing pops ahead of the picture.
+  var nav=document.getElementById('nav'),hero=document.querySelector('.hero');
   var phases=[].slice.call(document.querySelectorAll('.phase')),dots=[].slice.call(document.querySelectorAll('.dots i')),hint=document.getElementById('hint');
   var rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var F=document.getElementById('vidF'),eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
-  function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}))}
-  if(eF){F.src=b64url(eF.textContent);eF.remove()} if(eR)eR.remove();
-  var lastSeek=-1,ready=false;
-  // Touch devices (iPhone/iPad): iOS will not reliably render seeked frames of a paused video, so the
-  // banner is a frame sequence drawn on a canvas instead — deterministic on every device. The clip is
-  // not downloaded at all there. Desktop keeps the video.
-  var SEQ=!rm&&(matchMedia('(hover:none)').matches||('ontouchstart' in window))&&!!window.__frames;
-  var showFrame=function(){};
-  if(!SEQ){F.preload='auto';try{F.load()}catch(e){}}
-  if(SEQ){
-    F.removeAttribute('src');try{F.load()}catch(e){}F.style.display='none';
-    var cv=document.createElement('canvas');cv.className='hero-v';cv.setAttribute('aria-hidden','true');bg.insertBefore(cv,F);
-    var cx=cv.getContext('2d'),N=90,imgs=[],cur=-1,portrait=null,base='';
-    function okImg(im){return im&&im.complete&&im.naturalWidth>0}
-    function draw(i){var im=imgs[i];if(!okImg(im))return;cur=i;
-      var W=cv.width,H=cv.height,iw=im.naturalWidth,ih=im.naturalHeight,sc=Math.max(W/iw,H/ih),dw=iw*sc,dh=ih*sc;
-      var fx=portrait?0.5:0.62,fy=portrait?0.22:0.3;cx.drawImage(im,(W-dw)*fx,(H-dh)*fy,dw,dh)}
-    function want(p){return Math.round(Math.min(1,p/VID_END)*(N-1))}
-    showFrame=function(p){var i=want(p);if(okImg(imgs[i])){if(i!==cur)draw(i);return}
-      var j=i;while(j>=0&&!okImg(imgs[j]))j--;if(j>=0&&j!==cur)draw(j)};
-    function load(i){if(imgs[i])return;var im=new Image();im.decoding='async';
-      im.onload=function(){if(i===0)onReady();var p=progress();if(want(p)===i||cur<0)showFrame(p)};
-      im.src=base+('00'+(i+1)).slice(-3)+'.webp';imgs[i]=im}
-    var k=0;function pump(){while(k<N&&imgs[k])k++;if(k<N){load(k);k++;setTimeout(pump,12)}}
-    function pick(){var por=innerHeight>innerWidth;if(por===portrait)return;portrait=por;base=window.__frames+(por?'m/':'d/');imgs=[];cur=-1;k=0;load(0);load(want(progress()));setTimeout(pump,200)}
-    function size(){var d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(bg.clientWidth*d)||1;cv.height=Math.round(bg.clientHeight*d)||1;pick();if(cur>=0)draw(cur);else showFrame(progress())}
-    size();addEventListener('resize',size);addEventListener('orientationchange',function(){setTimeout(size,300)});
-  }
-  function dur(){return (F.duration&&isFinite(F.duration))?F.duration:0}
-  // the src is already in the markup, so metadata/first frame may have arrived before this script ran
-  function onReady(){if(ready)return;ready=true;bg.classList.add('ready');seekTo(progress())}
-  if(!SEQ){if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);}
-  F.addEventListener('canplay',onReady);
-  F.addEventListener('seeked',onReady);
-  // events can be missed (Safari fires them before this script on a cached page): poll readiness too
-  var rdyPoll=SEQ?0:setInterval(function(){if(ready){clearInterval(rdyPoll);return}if(F.readyState>=2)onReady();else if(F.readyState===0&&F.networkState!==2){try{F.load()}catch(e){}}},400);
-  // iOS Safari: a video only loads and renders seeked frames after it has been started by a touch once.
-  // On the first touch we play+pause it (muted, inline), then continue scrubbing.
-  var touch=!SEQ&&(('ontouchstart' in window)||matchMedia('(hover:none)').matches),primed=!touch;
-  function prime(){
-    if(primed)return;primed=true;
-    if(F.readyState===0){try{F.load()}catch(e){}}
-    var pr=F.play();
-    if(pr&&pr.then)pr.then(function(){F.pause();lastSeek=-1;onReady();seekTo(progress())}).catch(function(){primed=false});
-    else{F.pause();lastSeek=-1;seekTo(progress())}
-  }
-  if(touch)['touchend','pointerup','click','keydown'].forEach(function(e){addEventListener(e,prime,{capture:true,passive:true})});
-  // seek on every scroll frame. Never wait for 'seeked' — desktop Safari does not fire it for these
-  // paused seeks, and waiting on it throttled the clip to ~3 updates/s.
-  function seekTo(p){
-    var D=dur();if(!D)return;var t=Math.max(0,Math.min(D-0.02,Math.min(1,p/VID_END)*D));
-    if(Math.abs(t-lastSeek)<0.012)return;                 // less than a frame: nothing to draw
-    lastSeek=t;try{F.currentTime=t}catch(e){}
-  }
-  // progress across the hero track: 0 at the top, 1 when the stage is about to unpin
-  function progress(){
-    var track=hero.offsetHeight-innerHeight;if(track<=0)return 0;
-    var y=-hero.getBoundingClientRect().top;return Math.max(0,Math.min(1,y/track));
-  }
-  var VID_END=0.8,EDGE=[0,0.27,0.54,1],IN_X=70,OUT_X=-50,step=0;window.__step=0;window.__heroP=0;
-  function paint(p){
-    // caption i owns the third [EDGE[i],EDGE[i+1]]; crossfade around each boundary
-    var W=0.05;
-    for(var i=0;i<phases.length;i++){
-      var a=EDGE[i],b=EDGE[i+1],o=1,x=0;
-      if(i>0&&p<a+W){o=Math.max(0,(p-(a-W))/(2*W));x=IN_X*(1-o)}
-      if(i<phases.length-1&&p>b-W){o=Math.min(o,Math.max(0,((b+W)-p)/(2*W)));x=OUT_X*(1-o)}
-      if(p<a-W||p>b+W){o=0}
-      phases[i].style.opacity=o.toFixed(3);phases[i].style.transform='translate3d('+x.toFixed(1)+'px,0,0)';
-      phases[i].classList.toggle('on',o>0.5);
+  var step=0,lock=false,anim=null,acc=0,lastT=0,armed=true;
+  var SEG=[0,1.7,3.4],STEP_MS=1150,IN_X=70,OUT_X=-50;
+  window.__step=0;window.__heroP=0;
+  function ease(t){return t}  // linear: matches the clip playing at its own speed
+  function paint(prev,next,e){
+    for(var i=0;i<phases.length;i++){var ph=phases[i];
+      if(i===next){ph.style.opacity=e.toFixed(3);ph.style.transform='translate3d('+(IN_X*(1-e)).toFixed(1)+'px,0,0)'}
+      else if(i===prev){ph.style.opacity=(1-e).toFixed(3);ph.style.transform='translate3d('+(OUT_X*e).toFixed(1)+'px,0,0)'}
+      else{ph.style.opacity='0';ph.style.transform='translate3d('+IN_X+'px,0,0)'}
+      ph.classList.toggle('on',i===next&&e>0.5);
     }
-    var n=p<EDGE[1]-W?0:p<EDGE[2]-W?1:2;   // which caption is "current" for the dots
-    if(n!==step){step=n;window.__step=n;dots.forEach(function(d,i){d.classList.toggle('on',i===n)});hint.style.opacity=n>=2?0:1}
-    window.__heroP=p;
-  }
-  var rafQ=false;
-  function frame(){rafQ=false;var p=progress();paint(p);if(rm)return;if(SEQ)showFrame(p);else seekTo(p)}
-  function req(){if(!rafQ){rafQ=true;requestAnimationFrame(frame)}}
-  // scroll events are already frame-aligned; do the work right here (Safari pauses rAF entirely in a background tab)
-  // the header turns solid only once the hero itself starts leaving the screen (not while scrolling through it)
-  function navState(){nav.classList.toggle('solid',hero.getBoundingClientRect().bottom<innerHeight-40)}
-  addEventListener('scroll',function(){navState();frame()},{passive:true});navState();
-  addEventListener('resize',req);
-  // dots jump the page to the middle of a caption's third
-  dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){
-    var track=hero.offsetHeight-innerHeight;var top=hero.getBoundingClientRect().top+scrollY;
-    scrollTo({top:top+track*((EDGE[i]+EDGE[i+1])/2),behavior:'smooth'})})});
-  // settle: when scrolling stops inside the hero, glide to the nearest caption's home position so one
-  // flick lands on one caption. Pure scroll animation — the video keeps following the scroll position.
-  var HOME=[0,(EDGE[1]+EDGE[2])/2,VID_END],settleT=null,settleAnim=null,touching=false;
-  function cancelSettle(){if(settleAnim){cancelAnimationFrame(settleAnim);settleAnim=null}clearTimeout(settleT)}
-  function settle(){
-    if(rm||touching||settleAnim)return;
-    var track=hero.offsetHeight-innerHeight,p=progress();if(track<=0||p<=0||p>=0.97)return;
-    var best=0,bd=9;for(var i=0;i<HOME.length;i++){var d=Math.abs(HOME[i]-p);if(d<bd){bd=d;best=i}}
-    if(bd<0.008)return;
-    var from=scrollY,to=hero.getBoundingClientRect().top+scrollY+HOME[best]*track,t0=performance.now(),D=Math.min(650,320+bd*900);
-    var lastSet=from;
-    (function tick(now){
-      if(Math.abs(scrollY-lastSet)>3){settleAnim=null;return}   // something else moved the page: let it win
-      var k=Math.min(1,(now-t0)/D);k=1-Math.pow(1-k,3);lastSet=Math.round(from+(to-from)*k);
-      scrollTo({top:lastSet,behavior:'instant'});settleAnim=k<1?requestAnimationFrame(tick):null})(t0);
-  }
-  function scheduleSettle(){if(settleAnim)return;clearTimeout(settleT);settleT=setTimeout(settle,160)}
-  addEventListener('scroll',scheduleSettle,{passive:true});
-  ['wheel','keydown','pointerdown'].forEach(function(e){addEventListener(e,function(){cancelSettle();scheduleSettle()},{passive:true})});
-  addEventListener('touchstart',function(){touching=true;cancelSettle()},{passive:true});
-  addEventListener('touchend',function(){touching=false;scheduleSettle()},{passive:true});
-  addEventListener('touchcancel',function(){touching=false;scheduleSettle()},{passive:true});
-  if(rm){paint(0);bg.classList.add('ready')}
-  frame();
-  // keep old hooks harmless
-  window.__vid={dur:function(){return DUR||0},run:function(){},setStill:function(){},abort:function(){}};
 
-  // bloom: plays only while its section is on screen (never competes with the banner for the decoder);
-  // paused it hides behind a still, so Safari has nothing to badge. Purely event-driven — Safari
-  // throttles timers in a background tab, so nothing here waits on a tick.
-  (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA'),box=A&&A.parentNode;
-    if(!A)return;
-    if(eA){A.src=b64url(eA.textContent);eA.remove()}
-    A.load();
-    if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-    var wanted=false;
-    A.addEventListener('playing',function(){box.classList.add('live')});
-    A.addEventListener('pause',function(){box.classList.remove('live');setTimeout(function(){if(wanted&&!document.hidden)tryPlay()},250)});
-    function tryPlay(){
-      if(!wanted||A.readyState<2||!A.paused)return;
-      var p=A.play();if(p&&p.catch)p.catch(function(){box.classList.remove('live')});
-    }
-    ['loadeddata','canplay','canplaythrough','loadedmetadata'].forEach(function(ev){A.addEventListener(ev,tryPlay)});
-    ['pointerdown','touchstart','keydown','wheel','scroll'].forEach(function(ev){addEventListener(ev,tryPlay,{passive:true})});
-    document.addEventListener('visibilitychange',function(){if(document.hidden){A.pause()}else tryPlay()});
-    addEventListener('focus',tryPlay);
-    if('IntersectionObserver' in window){
-      new IntersectionObserver(function(en){en.forEach(function(e){wanted=e.isIntersecting;if(wanted)tryPlay();else A.pause()})},{threshold:.15}).observe(box);
-    }else{wanted=true;tryPlay()}
+  }
+  function chrome(){dots.forEach(function(d,i){d.classList.toggle('on',i===step)});hint.style.opacity=step>=2?0:1;window.__step=step;window.__heroP=step/2}
+  function go(n){
+    if(lock)return;n=Math.max(0,Math.min(2,n));if(n===step)return;
+    var prev=step;step=n;chrome();
+    if(rm){paint(prev,step,1);return}
+    lock=true;if(anim){cancelAnimationFrame(anim);anim=null}
+    var vFrom=SEG[prev]||0,vTo=SEG[step]||0,dur=Math.max(500,Math.abs(vTo-vFrom)*1000);
+    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo);
+    var t0=null;
+    anim=requestAnimationFrame(function frame(ts){
+      if(t0===null)t0=ts;var k=Math.min(1,(ts-t0)/dur);
+      paint(prev,step,ease(k));
+      if(k>0.55&&lock){lock=false;acc=0;armed=true}
+      if(k<1){anim=requestAnimationFrame(frame)}else{anim=null;lock=false;acc=0;if(window.__vid)window.__vid.settle(vTo)}
+    });
+  }
+  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40)},{passive:true});
+  function atTop(){var se=document.scrollingElement||document.documentElement;return (window.scrollY||0)<4&&se.scrollTop<4}
+  addEventListener('wheel',function(e){
+    if(!atTop())return;
+    var now=performance.now();
+    if(now-lastT>160){acc=0;armed=true}lastT=now;
+    if(lock){e.preventDefault();return}
+    var dir=e.deltaY>0?1:-1;
+    if((dir>0&&step>=2)||(dir<0&&step<=0))return;
+    e.preventDefault();
+    if(!armed)return;
+    acc+=e.deltaY;
+    if(Math.abs(acc)>=12){armed=false;acc=0;go(step+dir)}
+  },{passive:false});
+  addEventListener('keydown',function(e){if(!atTop())return;
+    if((e.key==='ArrowDown'||e.key==='PageDown'||e.key===' ')&&step<2){e.preventDefault();go(step+1)}
+    else if((e.key==='ArrowUp'||e.key==='PageUp')&&step>0){e.preventDefault();go(step-1)}});
+  var ty=null;addEventListener('touchstart',function(e){ty=e.touches[0].clientY},{passive:true});
+  addEventListener('touchmove',function(e){if(ty===null||!atTop())return;var dy=ty-e.touches[0].clientY;
+    if((dy>0&&step<2)||(dy<0&&step>0))e.preventDefault()},{passive:false});
+  addEventListener('touchend',function(e){if(ty===null||!atTop())return;var dy=ty-e.changedTouches[0].clientY;ty=null;
+    if(dy>40&&step<2)go(step+1);else if(dy<-40&&step>0)go(step-1)});
+  dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){go(i)})});
+  chrome();paint(0,0,1);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){if(anim){cancelAnimationFrame(anim);anim=null}lock=false;paint(step,step,1)}});
+
+  // hero clips: forward + a reversed copy. Both directions are real playback (never scrubbing),
+  // which is what makes the motion smooth; the reversed copy makes "back" look like rewind.
+  (function(){
+    var F=document.getElementById('vidF'),R=document.getElementById('vidR'),
+        eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
+    if(!F||!R)return;   // eF/eR exist only in the single-file build
+    function blob(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);
+      for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}));}
+    if(eF){F.src=blob(eF.textContent);eF.remove()}if(eR){R.src=blob(eR.textContent);eR.remove()}   // file build: src is already on the tag
+    (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA');
+      if(!A)return;if(eA){A.src=blob(eA.textContent);eA.remove()}A.load();   // source is a file in the multi-file build
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      if('IntersectionObserver' in window){
+        new IntersectionObserver(function(en){en.forEach(function(e){
+          if(e.isIntersecting){var pr=A.play();if(pr&&pr.catch)pr.catch(function(){})}else{A.pause()}
+        })},{threshold:.05}).observe(A);
+      }else{A.play()}
+    })();
+    F.loop=R.loop=false;F.muted=R.muted=true;F.load();R.load();
+    var DUR=0,raf=null,stop=0,active=F;
+    F.addEventListener('loadedmetadata',function(){DUR=F.duration;F.currentTime=0});
+    R.addEventListener('loadedmetadata',function(){R.currentTime=0});
+    function halt(){if(raf){cancelAnimationFrame(raf);raf=null}try{active.pause()}catch(e){}}
+    function watch(){if(active.currentTime>=stop-0.02){active.pause();try{active.currentTime=stop}catch(e){}raf=null;return}
+      raf=requestAnimationFrame(watch)}
+    window.__vid={
+      dur:function(){return DUR||0},
+      run:function(from,to){
+        if(!DUR)return;halt();
+        var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
+        var start=fwd?from:DUR-from;stop=fwd?to:DUR-to;
+        try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
+        active.classList.add('show');other.classList.remove('show');
+        var pr=active.play();if(pr&&pr.catch)pr.catch(function(){});
+        raf=requestAnimationFrame(watch);
+      },
+      settle:function(t){halt();var fwd=active===F;try{active.currentTime=fwd?t:DUR-t}catch(e){}}
+    };
+    document.addEventListener('visibilitychange',function(){if(document.hidden)halt()});
   })();
 
   // ---- mobile menu ----
@@ -1154,7 +1091,7 @@ window.__frames="img/frames/";window.__stills=["img/frame-0.jpg","img/frame-1.jp
     mmenu.hidden=!open;if(veil)veil.hidden=!open;
     burger.setAttribute('aria-expanded',open);
     document.body.classList.toggle('menu-open',open);
-    if(open)nav.classList.add('solid');else navState();   // solid bar while open, so nothing shows through
+    nav.classList.toggle('solid',open||scrollY>40);   // solid bar while open, so nothing shows through
     document.body.style.overflow=open?'hidden':'';
   }
   if(veil)veil.addEventListener('click',function(){setMenu(false)});
@@ -1162,7 +1099,6 @@ window.__frames="img/frames/";window.__stills=["img/frame-0.jpg","img/frame-1.jp
     if(mmenu.hidden)return;
     if(!mmenu.contains(e.target)&&!burger.contains(e.target))setMenu(false);
   });
-  function navH(){document.documentElement.style.setProperty('--navh',nav.offsetHeight+'px')}navH();addEventListener('resize',navH);addEventListener('load',navH);
   burger.addEventListener('click',function(){setMenu(mmenu.hidden)});
   mmenu.addEventListener('click',function(e){if(e.target.tagName==='A')setMenu(false)});
   addEventListener('keydown',function(e){if(e.key==='Escape'&&!mmenu.hidden)setMenu(false)});
