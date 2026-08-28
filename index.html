@@ -1011,13 +1011,13 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   var F=document.getElementById('vidF'),eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
   function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}))}
   if(eF){F.src=b64url(eF.textContent);eF.remove()} if(eR)eR.remove();
-  var lastSeek=-1,seeking=false,pending=null,ready=false,seekAt=0;
+  var lastSeek=-1,ready=false;
   function dur(){return (F.duration&&isFinite(F.duration))?F.duration:0}
   // the src is already in the markup, so metadata/first frame may have arrived before this script ran
   function onReady(){if(ready)return;ready=true;bg.classList.add('ready');seekTo(progress())}
   if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);
   F.addEventListener('canplay',onReady);
-  F.addEventListener('seeked',function(){seeking=false;onReady();if(pending!==null){var t=pending;pending=null;seekTo(t)}});
+  F.addEventListener('seeked',onReady);
   // events can be missed (Safari fires them before this script on a cached page): poll readiness too
   var rdyPoll=setInterval(function(){if(ready){clearInterval(rdyPoll);return}if(F.readyState>=2)onReady();else if(F.readyState===0&&F.networkState!==2){try{F.load()}catch(e){}}},400);
   // iOS Safari: a video only loads and renders seeked frames after it has been started by a touch once.
@@ -1027,15 +1027,16 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     if(primed)return;primed=true;
     if(F.readyState===0){try{F.load()}catch(e){}}
     var pr=F.play();
-    if(pr&&pr.then)pr.then(function(){F.pause();lastSeek=-1;seeking=false;onReady();seekTo(progress())}).catch(function(){primed=false});
+    if(pr&&pr.then)pr.then(function(){F.pause();lastSeek=-1;onReady();seekTo(progress())}).catch(function(){primed=false});
     else{F.pause();lastSeek=-1;seekTo(progress())}
   }
   if(touch)['touchend','pointerup','click','keydown'].forEach(function(e){addEventListener(e,prime,{capture:true,passive:true})});
+  // seek on every scroll frame. Never wait for 'seeked' — desktop Safari does not fire it for these
+  // paused seeks, and waiting on it throttled the clip to ~3 updates/s.
   function seekTo(p){
     var D=dur();if(!D)return;var t=Math.max(0,Math.min(D-0.02,Math.min(1,p/VID_END)*D));
     if(Math.abs(t-lastSeek)<0.012)return;                 // less than a frame: nothing to draw
-    if(seeking&&performance.now()-seekAt<300){pending=p;return}   // one seek in flight at a time (Safari otherwise stalls)
-    seeking=true;seekAt=performance.now();lastSeek=t;try{F.currentTime=t}catch(e){seeking=false}
+    lastSeek=t;try{F.currentTime=t}catch(e){}
   }
   // progress across the hero track: 0 at the top, 1 when the stage is about to unpin
   function progress(){
