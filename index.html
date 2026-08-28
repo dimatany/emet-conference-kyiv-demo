@@ -1134,27 +1134,31 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     document.addEventListener('visibilitychange',function(){if(document.hidden)finish()});
   })();
 
-  // bloom: keeps playing while on screen — a paused clip would get Safari's badge
-  (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA');
+  // bloom: plays only while its section is on screen, so it never competes with the banner
+  // for the decoder; while paused it is hidden behind a still, so Safari has nothing to badge.
+  (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA'),box=A&&A.parentNode;
     if(!A)return;
     if(eA){A.src=b64url(eA.textContent);eA.remove()}
     A.load();
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-    // never depends on event ordering: re-arm from readyState on every hook that could matter
-    var box=A.parentNode;
+    var wanted=false;
     A.addEventListener('playing',function(){box.classList.add('live')});
     A.addEventListener('pause',function(){box.classList.remove('live')});
-    function keep(){if(A.readyState<2||!A.paused)return;var p=A.play();if(p&&p.catch)p.catch(function(){box.classList.remove('live')})}
-    ['loadeddata','canplay','canplaythrough','waiting','stalled'].forEach(function(ev){A.addEventListener(ev,keep)});
-    // over a slow network readyState can cross 2 between any two hooks — poll until it plays, then stop
-    var tries=0,poll=setInterval(function(){keep();if(!A.paused||++tries>120)clearInterval(poll)},250);
-    if('IntersectionObserver' in window){
-      new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting)keep()})},{threshold:0}).observe(A);
+    function tryPlay(){
+      if(!wanted||A.readyState<2||!A.paused)return;
+      var p=A.play();if(p&&p.catch)p.catch(function(){box.classList.remove('live')});
     }
-    A.addEventListener('pause',function(){if(!document.hidden)keep()});
-    document.addEventListener('visibilitychange',function(){document.hidden?A.pause():keep()});
-    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,keep,{passive:true,once:true})});
-    keep();
+    // no reliance on event order: while the clip is wanted and not yet playing, keep asking
+    setInterval(tryPlay,300);
+    ['loadeddata','canplay','canplaythrough'].forEach(function(ev){A.addEventListener(ev,tryPlay)});
+    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,tryPlay,{passive:true})});
+    document.addEventListener('visibilitychange',function(){if(document.hidden){A.pause()}else tryPlay()});
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(en){en.forEach(function(e){
+        wanted=e.isIntersecting;
+        if(wanted)tryPlay();else A.pause();
+      })},{threshold:.15}).observe(box);
+    }else{wanted=true;tryPlay()}
   })();
 
   // ---- mobile menu ----
