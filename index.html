@@ -1015,7 +1015,20 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   function onReady(){if(ready)return;ready=true;bg.classList.add('ready');seekTo(progress())}
   if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);
   F.addEventListener('canplay',onReady);
-  F.addEventListener('seeked',function(){seeking=false;if(pending!==null){var t=pending;pending=null;seekTo(t)}});
+  F.addEventListener('seeked',function(){seeking=false;onReady();if(pending!==null){var t=pending;pending=null;seekTo(t)}});
+  // events can be missed (Safari fires them before this script on a cached page): poll readiness too
+  var rdyPoll=setInterval(function(){if(ready){clearInterval(rdyPoll);return}if(F.readyState>=2)onReady();else if(F.readyState===0&&F.networkState!==2){try{F.load()}catch(e){}}},400);
+  // iOS Safari: a video only loads and renders seeked frames after it has been started by a touch once.
+  // On the first touch we play+pause it (muted, inline), then continue scrubbing.
+  var touch=('ontouchstart' in window)||matchMedia('(hover:none)').matches,primed=!touch;
+  function prime(){
+    if(primed)return;primed=true;
+    if(F.readyState===0){try{F.load()}catch(e){}}
+    var pr=F.play();
+    if(pr&&pr.then)pr.then(function(){F.pause();lastSeek=-1;seeking=false;onReady();seekTo(progress())}).catch(function(){primed=false});
+    else{F.pause();lastSeek=-1;seekTo(progress())}
+  }
+  if(touch)['touchend','pointerup','click','keydown'].forEach(function(e){addEventListener(e,prime,{capture:true,passive:true})});
   function seekTo(p){
     var D=dur();if(!D)return;var t=Math.max(0,Math.min(D-0.02,Math.min(1,p/VID_END)*D));
     if(Math.abs(t-lastSeek)<0.012)return;                 // less than a frame: nothing to draw
