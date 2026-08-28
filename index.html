@@ -1062,7 +1062,9 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
   function frame(){rafQ=false;var p=progress();paint(p);if(!rm)seekTo(p)}
   function req(){if(!rafQ){rafQ=true;requestAnimationFrame(frame)}}
   // scroll events are already frame-aligned; do the work right here (Safari pauses rAF entirely in a background tab)
-  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40);frame()},{passive:true});
+  // the header turns solid only once the hero itself starts leaving the screen (not while scrolling through it)
+  function navState(){nav.classList.toggle('solid',hero.getBoundingClientRect().bottom<innerHeight-40)}
+  addEventListener('scroll',function(){navState();frame()},{passive:true});navState();
   addEventListener('resize',req);
   // dots jump the page to the middle of a caption's third
   dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){
