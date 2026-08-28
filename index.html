@@ -570,7 +570,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
       <video id="vidF" class="ph hero-v show" muted playsinline preload="auto" poster="img/hero-poster.jpg"></video>
-      <video id="vidR" class="hero-v" muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
+      <video id="vidR" class="hero-v" autoplay muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -621,7 +621,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </header>
 
 <section class="block light" id="about">
-  <div class="amb" aria-hidden="true"><video id="amb-video" muted loop playsinline preload="metadata" src="media/bloom.mp4"></video></div>
+  <div class="amb" aria-hidden="true"><video id="amb-video" autoplay muted loop playsinline preload="auto" src="media/bloom.mp4"></video></div>
   <div class="wrap ab">
     <div class="ab-left rv">
       <div class="ab-card ab-head">
@@ -1063,7 +1063,20 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
         })},{threshold:.05}).observe(A);
       }else{A.play()}
     })();
-    F.loop=R.loop=false;F.muted=R.muted=true;F.load();R.load();
+    F.loop=R.loop=false;F.muted=R.muted=true;
+    F.setAttribute('playsinline','');R.setAttribute('playsinline','');
+    // Safari unlocks a video only after it has actually played once — start and park it
+    function prime(v){
+      var p=v.play();
+      if(p&&p.then)p.then(function(){v.pause();try{v.currentTime=0}catch(e){}}).catch(function(){});
+      else{try{v.pause();v.currentTime=0}catch(e){}}
+    }
+    F.addEventListener('loadeddata',function(){prime(F)},{once:true});
+    R.addEventListener('loadeddata',function(){prime(R)},{once:true});
+    ['pointerdown','touchstart','keydown'].forEach(function(ev){
+      addEventListener(ev,function once(){prime(F);prime(R);['pointerdown','touchstart','keydown'].forEach(function(e2){removeEventListener(e2,once)})},{passive:true});
+    });
+    F.load();R.load();
     var DUR=0,raf=null,stop=0,active=F;
     F.addEventListener('loadedmetadata',function(){DUR=F.duration;F.currentTime=0});
     R.addEventListener('loadedmetadata',function(){R.currentTime=0});
