@@ -27,6 +27,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 table,td,th{color:inherit;font:inherit}
 html{scroll-behavior:smooth;background:var(--navy)}
+/* anchors land with the coloured block starting right under the fixed nav (its height is measured into --navh) */
+section[id]{scroll-margin-top:var(--navh,72px)}
 body{background:var(--navy);color:var(--s-text);font-family:var(--font);font-weight:400;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
@@ -1099,6 +1101,7 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     if(mmenu.hidden)return;
     if(!mmenu.contains(e.target)&&!burger.contains(e.target))setMenu(false);
   });
+  function navH(){var n=document.getElementById('nav');if(n)document.documentElement.style.setProperty('--navh',n.offsetHeight+'px')}navH();addEventListener('resize',navH);addEventListener('load',navH);
   burger.addEventListener('click',function(){setMenu(mmenu.hidden)});
   mmenu.addEventListener('click',function(e){if(e.target.tagName==='A')setMenu(false)});
   addEventListener('keydown',function(e){if(e.key==='Escape'&&!mmenu.hidden)setMenu(false)});
