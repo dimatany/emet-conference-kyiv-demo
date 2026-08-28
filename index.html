@@ -66,8 +66,14 @@ body.menu-open .nav{background:rgba(8,30,45,.98);backdrop-filter:blur(10px);-web
 @media(max-width:860px){.nav ul{display:none}}
 
 /* HERO — pinned scrollytelling (3 phases over one background) */
-.hero{position:relative;height:100svh;background:var(--navy);color:#F2FBFA;overflow:hidden}
-.hero-stage{position:relative;height:100svh;overflow:hidden}
+/* the hero is a 300svh track; the stage stays pinned to the top while the page scrolls through it,
+   and the video frame + the three captions are a pure function of how far you have scrolled */
+.hero{position:relative;height:350svh;background:var(--navy);color:#F2FBFA}
+.hero-stage{position:sticky;top:0;height:100svh;overflow:hidden}
+.hero-still,.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy)}
+.hero-still{z-index:2;opacity:1;transition:opacity .25s}
+.hero-bg.ready .hero-still{opacity:0}
+.hero-v{z-index:1;opacity:1}
 .hero-bg{position:absolute;inset:0;z-index:0;background:
   radial-gradient(70% 90% at 82% 30%, rgba(67,217,217,.5) 0%, rgba(48,177,190,.24) 30%, rgba(8,30,45,0) 65%),
   radial-gradient(40% 30% at 50% 0%, rgba(67,217,217,.28) 0%, rgba(8,30,45,0) 70%),
@@ -80,12 +86,7 @@ video::-webkit-media-controls-panel-container,
 video::-webkit-media-controls-start-playback-button,
 video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important;opacity:0!important}
 video{pointer-events:none}
-.hero-still,.hero-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%;background:var(--navy)}
-.hero-still{z-index:2}
-/* the still hides while a clip plays; a paused clip is never on screen, so Safari has nothing to badge */
-.hero-bg.playing .hero-still{opacity:0}
-.hero-v{opacity:0;z-index:1}
-.hero-v.show{opacity:1}
+
 .hero-v.show{opacity:1}
 .hero-bg::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--turq);box-shadow:0 0 18px 2px rgba(67,217,217,.8),0 0 60px 8px rgba(67,217,217,.35);z-index:4;opacity:.9}
 .hero-bg::after{content:"";position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(8,30,45,.7) 0%,rgba(8,30,45,.16) 26%,rgba(8,30,45,0) 50%,rgba(8,30,45,.86) 100%),linear-gradient(90deg,rgba(4,18,28,.92) 0%,rgba(4,18,28,.88) 18%,rgba(4,18,28,.74) 34%,rgba(6,24,36,.45) 48%,rgba(8,30,45,.18) 60%,rgba(8,30,45,0) 72%)}
@@ -587,8 +588,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
       <img id="heroStill" class="hero-still" src="img/frame-0.jpg" alt="" decoding="async" fetchpriority="high">
-      <video id="vidF" class="hero-v" muted playsinline preload="auto" src="media/hero-fwd.mp4"></video>
-      <video id="vidR" class="hero-v" muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
+      <video id="vidF" class="hero-v" muted playsinline preload="auto" src="media/hero-scrub.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -1000,172 +1000,62 @@ window.__stills=["img/frame-0.jpg","img/frame-1.jpg","img/frame-2.jpg"];
     });
   })();
 
-  // ---- hero: three scroll steps. ONE progress drives the video frame AND the texts,
-  // same duration and easing for both, forwards and backwards — nothing pops ahead of the picture.
-  var nav=document.getElementById('nav'),hero=document.querySelector('.hero');
+  // ---- hero: scroll-driven. No steps, no wheel handling, no timers. Every frame we read scrollY,
+  // turn it into progress p (0..1 across the hero track), seek the clip to p*duration and set the
+  // three captions from the same p. Trackpad inertia just moves p smoothly; backwards is the same formula.
+  var nav=document.getElementById('nav'),hero=document.querySelector('.hero'),bg=document.querySelector('.hero-bg');
   var phases=[].slice.call(document.querySelectorAll('.phase')),dots=[].slice.call(document.querySelectorAll('.dots i')),hint=document.getElementById('hint');
   var rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var step=0,lock=false,anim=null,acc=0,lastT=0,armed=true;
-  var SEG=[0,1.7,3.4],STEP_MS=1150,IN_X=70,OUT_X=-50;
-  window.__step=0;window.__heroP=0;
-  function ease(t){return t}  // identity: the text sits exactly on the clip's progress
-  function paint(prev,next,e){
-    for(var i=0;i<phases.length;i++){var ph=phases[i];
-      if(i===next){ph.style.opacity=e.toFixed(3);ph.style.transform='translate3d('+(IN_X*(1-e)).toFixed(1)+'px,0,0)'}
-      else if(i===prev){ph.style.opacity=(1-e).toFixed(3);ph.style.transform='translate3d('+(OUT_X*e).toFixed(1)+'px,0,0)'}
-      else{ph.style.opacity='0';ph.style.transform='translate3d('+IN_X+'px,0,0)'}
-      ph.classList.toggle('on',i===next&&e>0.5);
-      if(i!==next&&i!==prev)ph.style.opacity='0';
-    }
-
+  var F=document.getElementById('vidF'),eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
+  function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}))}
+  if(eF){F.src=b64url(eF.textContent);eF.remove()} if(eR)eR.remove();
+  var lastSeek=-1,seeking=false,pending=null,ready=false,seekAt=0;
+  function dur(){return (F.duration&&isFinite(F.duration))?F.duration:0}
+  // the src is already in the markup, so metadata/first frame may have arrived before this script ran
+  function onReady(){if(ready)return;ready=true;bg.classList.add('ready');seekTo(progress())}
+  if(F.readyState>=2)onReady();else F.addEventListener('loadeddata',onReady);
+  F.addEventListener('canplay',onReady);
+  F.addEventListener('seeked',function(){seeking=false;if(pending!==null){var t=pending;pending=null;seekTo(t)}});
+  function seekTo(p){
+    var D=dur();if(!D)return;var t=Math.max(0,Math.min(D-0.02,Math.min(1,p/VID_END)*D));
+    if(Math.abs(t-lastSeek)<0.012)return;                 // less than a frame: nothing to draw
+    if(seeking&&performance.now()-seekAt<300){pending=p;return}   // one seek in flight at a time (Safari otherwise stalls)
+    seeking=true;seekAt=performance.now();lastSeek=t;try{F.currentTime=t}catch(e){seeking=false}
   }
-  function chrome(){dots.forEach(function(d,i){d.classList.toggle('on',i===step)});hint.style.opacity=step>=2?0:1;window.__step=step;window.__heroP=step/2}
-  var unlockT=null;
-  function go(n){
-    n=Math.max(0,Math.min(2,n));if(n===step)return;
-    if(unlockT)clearTimeout(unlockT);
-    // take over any move in flight: stop its text, park its clip on the still, clear all phases
-    if(anim){cancelAnimationFrame(anim);anim=null}
-    if(window.__vid&&window.__vid.abort)window.__vid.abort();
-    var prev=step;step=n;chrome();
-    document.documentElement.setAttribute('data-hero-busy','1');
-    if(rm){paint(prev,step,1);if(window.__vid)window.__vid.setStill(step);document.documentElement.removeAttribute('data-hero-busy');return}
-    lock=true;
-    var vFrom=SEG[prev]||0,vTo=SEG[step]||0,dur=Math.max(500,Math.abs(vTo-vFrom)*1000);
-    var startText=function(){
-      var t0=null,useVideo=!!(window.__vid&&window.__vid.dur()>0);
-      var tick=function(ts){
-        if(t0===null)t0=ts;
-        var k=null;
-        if(useVideo&&window.__vidProgress){var vp=window.__vidProgress();if(vp!==null)k=vp}
-        if(k===null){ // no clip running: either it has parked (finish the text) or there is no video (wall clock)
-          k=(useVideo&&t0!==null&&(ts-t0)>150)?1:Math.min(1,(ts-t0)/dur);
-        }
-        paint(prev,step,ease(k));
-        if(k>0.55&&lock){lock=false;acc=0;armed=true}
-        if(k<1){anim=requestAnimationFrame(tick)}else{anim=null;lock=false;acc=0;if(!useVideo)document.documentElement.removeAttribute('data-hero-busy')}
-      };
-      anim=requestAnimationFrame(tick);
-      // also advance from the video clock while rAF is throttled
-      var onT=function(){if(anim!==null)tick(performance.now())};
-      [document.getElementById('vidF'),document.getElementById('vidR')].forEach(function(v){if(v)v.addEventListener('timeupdate',onT)});
-      var stopT=function(){[document.getElementById('vidF'),document.getElementById('vidR')].forEach(function(v){if(v)v.removeEventListener('timeupdate',onT)})};
-      setTimeout(stopT,dur+800);
-    };
-    // the text timeline is started by the video the instant its first frame is painted,
-    // so picture and copy always move together; without video, start it now
-    if(window.__vid&&window.__vid.dur()>0)window.__vid.run(vFrom,vTo,step,startText);
-    else{if(window.__vid)window.__vid.setStill(step);startText()}
+  // progress across the hero track: 0 at the top, 1 when the stage is about to unpin
+  function progress(){
+    var track=hero.offsetHeight-innerHeight;if(track<=0)return 0;
+    var y=-hero.getBoundingClientRect().top;return Math.max(0,Math.min(1,y/track));
   }
-  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40)},{passive:true});
-  function atTop(){var se=document.scrollingElement||document.documentElement;return (window.scrollY||0)<4&&se.scrollTop<4}
-  var gestureUntil=0;
-  function inputBlocked(){return document.documentElement.hasAttribute('data-hero-busy')||performance.now()<gestureUntil}
-  function gestureGo(n){if(inputBlocked())return;gestureUntil=performance.now()+STEP_MS+250;acc=0;go(n)}
-  addEventListener('wheel',function(e){
-    if(!atTop())return;
-    var now=performance.now();
-    if(now-lastT>160){acc=0}lastT=now;
-    var dir=e.deltaY>0?1:-1;
-    if((dir>0&&step>=2)||(dir<0&&step<=0))return;
-    e.preventDefault();
-    if(inputBlocked()){acc=0;return}          // a flick delivers dozens of events — the move is already underway
-    acc+=e.deltaY;
-    if(Math.abs(acc)>=12)gestureGo(step+dir);
-  },{passive:false});
-  addEventListener('keydown',function(e){if(!atTop())return;
-    if((e.key==='ArrowDown'||e.key==='PageDown'||e.key===' ')&&step<2){e.preventDefault();gestureGo(step+1)}
-    else if((e.key==='ArrowUp'||e.key==='PageUp')&&step>0){e.preventDefault();gestureGo(step-1)}});
-  var ty=null;addEventListener('touchstart',function(e){ty=e.touches[0].clientY},{passive:true});
-  addEventListener('touchmove',function(e){if(ty===null||!atTop())return;var dy=ty-e.touches[0].clientY;
-    if((dy>0&&step<2)||(dy<0&&step>0))e.preventDefault()},{passive:false});
-  addEventListener('touchend',function(e){if(ty===null||!atTop())return;var dy=ty-e.changedTouches[0].clientY;ty=null;
-    if(dy>40&&step<2)gestureGo(step+1);else if(dy<-40&&step>0)gestureGo(step-1)});
-  dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){go(i)})});
-  chrome();paint(0,0,1);
-  document.addEventListener('visibilitychange',function(){if(!document.hidden){if(anim){cancelAnimationFrame(anim);anim=null}lock=false;paint(step,step,1)}});
-
-  // hero clips: forward + a reversed copy, both real playback. Between steps the banner shows a
-  // still frame cut from the exact target time — never a paused video — so the resting frame is
-  // right by construction and Safari has nothing to stamp its play badge on.
-  // Stop mechanism (measured in Safari: 11 ms overrun): poll currentTime on rAF. A backgrounded
-  // tab freezes rAF, so visibilitychange parks the banner on its still the moment that happens.
-  function b64url(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);
-    for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
-    return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}));}
-  (function(){
-    var F=document.getElementById('vidF'),R=document.getElementById('vidR'),bg=document.querySelector('.hero-bg'),
-        still=document.getElementById('heroStill'),eF=document.getElementById('srcF'),eR=document.getElementById('srcR');
-    if(!F||!R||!still)return;
-    var STILLS=window.__stills||[],base={F:F.getAttribute('src')||'',R:R.getAttribute('src')||''};
-    if(eF&&eR){base.F=b64url(eF.textContent);base.R=b64url(eR.textContent);F.src=base.F;R.src=base.R;eF.remove();eR.remove()}
-    STILLS.forEach(function(u){var im=new Image();im.src=u});
-    F.loop=R.loop=false;F.muted=R.muted=true;F.load();R.load();
-
-    var DUR=0,active=F,raf=null,stopAt=0,onDone=null,unlocked=false,FRAME=1/24;
-    F.addEventListener('loadedmetadata',function(){DUR=F.duration});
-    // Safari lets script drive play() only after one real play on the element — do it invisibly
-    function unlock(){
-      if(unlocked)return;unlocked=true;
-      [F,R].forEach(function(v){var p=v.play();if(p&&p.then)p.then(function(){v.pause()}).catch(function(){})});
+  var VID_END=0.8,EDGE=[0,0.27,0.54,1],IN_X=70,OUT_X=-50,step=0;window.__step=0;window.__heroP=0;
+  function paint(p){
+    // caption i owns the third [EDGE[i],EDGE[i+1]]; crossfade around each boundary
+    var W=0.12;
+    for(var i=0;i<phases.length;i++){
+      var a=EDGE[i],b=EDGE[i+1],o=1,x=0;
+      if(i>0&&p<a+W){o=Math.max(0,(p-(a-W))/(2*W));x=IN_X*(1-o)}
+      if(i<phases.length-1&&p>b-W){o=Math.min(o,Math.max(0,((b+W)-p)/(2*W)));x=OUT_X*(1-o)}
+      if(p<a-W||p>b+W){o=0}
+      phases[i].style.opacity=o.toFixed(3);phases[i].style.transform='translate3d('+x.toFixed(1)+'px,0,0)';
+      phases[i].classList.toggle('on',o>0.5);
     }
-    ['pointerdown','touchstart','keydown','wheel'].forEach(function(ev){addEventListener(ev,unlock,{passive:true,once:true})});
-
-    function cancel(){if(raf){cancelAnimationFrame(raf);raf=null}}
-    // expose progress of the running clip so the text can follow the picture, not a wall clock
-    window.__vidProgress=function(){if(!active||onDone===null||!DUR)return null;var fwd=active===F;var t=fwd?active.currentTime:DUR-active.currentTime;var a=Math.min(runFrom,runTo),b=Math.max(runFrom,runTo);return Math.max(0,Math.min(1,(t-a)/((b-a)||1)))};
-    var runFrom=0,runTo=0;
-    function finish(){
-      cancel();try{active.pause()}catch(e){}
-      var idx=onDone;onDone=null;
-      var done=function(){bg.classList.remove('playing');F.classList.remove('show');R.classList.remove('show');document.documentElement.removeAttribute('data-hero-busy')};
-      if(idx!==null&&STILLS[idx]&&still.src.indexOf(STILLS[idx])<0){
-        // swap the still only once the new frame is decoded — no flash of the old frame
-        var im=new Image();im.onload=function(){still.src=STILLS[idx];done()};im.onerror=done;im.src=STILLS[idx];
-      }else done();
-    }
-    function check(){
-      if(!active||onDone===null)return;
-      if(active.paused||active.ended){finish();return}
-      // rAF alive: stop within half a frame. Throttled tab (timeupdate every ~250 ms): stop early rather
-      // than overrun — the still frame is what the visitor sees at rest, so an early cut is invisible.
-      var margin=rafAlive?FRAME*0.5:0.26;
-      if(active.currentTime>=stopAt-margin){finish();return}
-      raf=requestAnimationFrame(poll);
-    }
-    var rafAlive=true,lastRaf=performance.now();
-    function poll(){raf=null;lastRaf=performance.now();rafAlive=true;check()}
-    // if rAF has not ticked for a while the tab is throttled — switch to the safe margin
-    F.addEventListener('timeupdate',function(){rafAlive=(performance.now()-lastRaf)<200});
-    R.addEventListener('timeupdate',function(){rafAlive=(performance.now()-lastRaf)<200});
-    // timeupdate keeps firing in a throttled/background tab (~4/s) — the stop never depends on rAF alone
-    F.addEventListener('timeupdate',check);R.addEventListener('timeupdate',check);
-    F.addEventListener('ended',check);R.addEventListener('ended',check);
-    window.__vid={
-      dur:function(){return DUR||0},
-      run:function(from,to,idx,onFirstFrame){
-        if(!DUR)return;cancel();try{F.pause();R.pause()}catch(e){}
-        var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
-        var start=fwd?from:DUR-from;stopAt=fwd?to:DUR-to;onDone=idx;runFrom=from;runTo=to;
-        function begin(){
-          try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
-          active.classList.add('show');other.classList.remove('show');
-          var pr=active.play();
-          var go=function(){
-            // reveal the clip — and only then start the text — on the first painted frame
-            var shown=false;function reveal(){if(shown)return;shown=true;bg.classList.add('playing');if(onFirstFrame)onFirstFrame()}
-            if(active.requestVideoFrameCallback){active.requestVideoFrameCallback(reveal);setTimeout(reveal,150)}else reveal();
-            raf=requestAnimationFrame(poll);
-          };
-          if(pr&&pr.then)pr.then(go).catch(function(){finish();if(onFirstFrame)onFirstFrame()});else go();
-        }
-        if(active.readyState>=2)begin();else active.addEventListener('loadeddata',begin,{once:true});
-      },
-      setStill:function(idx){if(STILLS[idx])still.src=STILLS[idx]},
-      abort:function(){cancel();onDone=null;try{F.pause();R.pause()}catch(e){}bg.classList.remove('playing');F.classList.remove('show');R.classList.remove('show')}
-    };
-    document.addEventListener('visibilitychange',function(){if(document.hidden)finish()});
-  })();
+    var n=p<EDGE[1]-W?0:p<EDGE[2]-W?1:2;   // which caption is "current" for the dots
+    if(n!==step){step=n;window.__step=n;dots.forEach(function(d,i){d.classList.toggle('on',i===n)});hint.style.opacity=n>=2?0:1}
+    window.__heroP=p;
+  }
+  var rafQ=false;
+  function frame(){rafQ=false;var p=progress();paint(p);if(!rm)seekTo(p)}
+  function req(){if(!rafQ){rafQ=true;requestAnimationFrame(frame)}}
+  addEventListener('scroll',function(){nav.classList.toggle('solid',(window.scrollY||0)>40);req()},{passive:true});
+  addEventListener('resize',req);
+  // dots jump the page to the middle of a caption's third
+  dots.forEach(function(d,i){d.style.cursor='pointer';d.addEventListener('click',function(){
+    var track=hero.offsetHeight-innerHeight;var top=hero.getBoundingClientRect().top+scrollY;
+    scrollTo({top:top+track*((EDGE[i]+EDGE[i+1])/2),behavior:'smooth'})})});
+  if(rm){paint(0);bg.classList.add('ready')}
+  frame();
+  // keep old hooks harmless
+  window.__vid={dur:function(){return DUR||0},run:function(){},setStill:function(){},abort:function(){}};
 
   // bloom: plays only while its section is on screen (never competes with the banner for the decoder);
   // paused it hides behind a still, so Safari has nothing to badge. Purely event-driven — Safari
