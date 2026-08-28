@@ -1088,7 +1088,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
       addEventListener(ev,function once(){prime(F);prime(R);['pointerdown','touchstart','keydown'].forEach(function(e2){removeEventListener(e2,once)})},{passive:true});
     });
     F.load();R.load();
-    var DUR=0,raf=null,stop=0,active=F;
+    var DUR=0,raf=null,stop=0,active=F,targetT=0;
     F.addEventListener('loadedmetadata',function(){DUR=F.duration;F.currentTime=0});
     R.addEventListener('loadedmetadata',function(){R.currentTime=0});
     function halt(){try{clearWatch()}catch(e){}try{active.pause()}catch(e){}}
@@ -1101,9 +1101,19 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
       if(vcb&&active.cancelVideoFrameCallback){try{active.cancelVideoFrameCallback(vcb)}catch(e){}vcb=null}
       active.removeEventListener('timeupdate',onTime);
     }
+    function land(t){
+      // the reversed copy can end a frame short — the forward clip is the source of truth
+      try{R.currentTime=Math.max(0,Math.min(DUR-t,DUR-0.02))}catch(e){}
+      function showF(){F.classList.add('show');R.classList.remove('show')}
+      if(Math.abs(F.currentTime-t)<0.04){showF();return}
+      F.addEventListener('seeked',function once(){F.removeEventListener('seeked',once);showF()});
+      try{F.currentTime=Math.max(0,Math.min(t,DUR-0.02))}catch(e){showF()}
+      setTimeout(showF,220);
+    }
     function reachedStop(){
       active.pause();try{active.currentTime=stop}catch(e){}
       clearWatch();
+      land(targetT);
     }
     function onTime(){ if(active.currentTime>=stop-0.03) reachedStop(); }
     function watch(){
@@ -1116,7 +1126,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
       run:function(from,to){
         if(!DUR)return;halt();
         var fwd=to>from;active=fwd?F:R;var other=fwd?R:F;
-        var start=fwd?from:DUR-from;stop=fwd?to:DUR-to;
+        var start=fwd?from:DUR-from;stop=fwd?to:DUR-to;targetT=to;
         try{active.currentTime=Math.max(0,Math.min(start,DUR-0.02))}catch(e){}
         active.classList.add('show');other.classList.remove('show');
         var pr=active.play();if(pr&&pr.catch)pr.catch(function(){});
@@ -1125,16 +1135,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
         // last-resort stop, in case neither callback fires
         guard=setTimeout(reachedStop,Math.max(400,Math.abs(stop-start)*1000+260));
       },
-      settle:function(t){
-        halt();
-        // always finish on the forward clip: the reversed copy can land a frame off
-        try{R.currentTime=Math.max(0,Math.min(DUR-t,DUR-0.02))}catch(e){}
-        function showF(){F.classList.add('show');R.classList.remove('show')}
-        if(Math.abs(F.currentTime-t)<0.05){showF();return}
-        F.addEventListener('seeked',function once(){F.removeEventListener('seeked',once);showF()});
-        try{F.currentTime=Math.max(0,Math.min(t,DUR-0.02))}catch(e){showF()}
-        setTimeout(showF,220);
-      }
+      settle:function(t){halt();land(t)}
     };
     document.addEventListener('visibilitychange',function(){if(document.hidden)halt()});
   })();
