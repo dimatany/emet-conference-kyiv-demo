@@ -577,7 +577,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
-      <video id="vidF" class="hero-v show" autoplay muted playsinline preload="auto" poster="img/hero-poster.jpg" src="media/hero-fwd.mp4"></video>
+      <video id="vidF" class="hero-v" autoplay muted playsinline preload="auto" src="media/hero-fwd.mp4"></video>
       <video id="vidR" class="hero-v" autoplay muted playsinline preload="auto" src="media/hero-rev.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
@@ -1082,7 +1082,8 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
       if(p&&p.then)p.then(function(){v.pause();try{v.currentTime=0}catch(e){}}).catch(function(){});
       else{try{v.pause();v.currentTime=0}catch(e){}}
     }
-    F.addEventListener('loadeddata',function(){prime(F)},{once:true});
+    F.addEventListener('loadeddata',function(){prime(F);F.classList.add('show')},{once:true});
+    if(F.readyState>=2){prime(F);F.classList.add('show')}
     R.addEventListener('loadeddata',function(){prime(R)},{once:true});
     ['pointerdown','touchstart','keydown'].forEach(function(ev){
       addEventListener(ev,function once(){prime(F);prime(R);['pointerdown','touchstart','keydown'].forEach(function(e2){removeEventListener(e2,once)})},{passive:true});
