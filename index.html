@@ -1126,10 +1126,14 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
         guard=setTimeout(reachedStop,Math.max(400,Math.abs(stop-start)*1000+260));
       },
       settle:function(t){
-        halt();var fwd=active===F;
-        try{active.currentTime=fwd?t:DUR-t}catch(e){}
-        // pre-seek the other clip to the same moment: the next step starts instantly
-        var other=fwd?R:F;try{other.currentTime=fwd?DUR-t:t}catch(e){}
+        halt();
+        // always finish on the forward clip: the reversed copy can land a frame off
+        try{R.currentTime=Math.max(0,Math.min(DUR-t,DUR-0.02))}catch(e){}
+        function showF(){F.classList.add('show');R.classList.remove('show')}
+        if(Math.abs(F.currentTime-t)<0.05){showF();return}
+        F.addEventListener('seeked',function once(){F.removeEventListener('seeked',once);showF()});
+        try{F.currentTime=Math.max(0,Math.min(t,DUR-0.02))}catch(e){showF()}
+        setTimeout(showF,220);
       }
     };
     document.addEventListener('visibilitychange',function(){if(document.hidden)halt()});
