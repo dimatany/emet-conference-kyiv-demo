@@ -596,8 +596,8 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="hero-bg" aria-hidden="true">
-      <video id="vidF" class="ph hero-v show" muted playsinline preload="auto" poster="img/hero-poster.jpg" src="media/hero-fwd-3.mp4"></video>
-      <video id="vidR" class="hero-v" muted playsinline preload="auto" src="media/hero-rev-3.mp4"></video>
+      <video id="vidF" class="ph hero-v show" muted playsinline preload="auto" poster="img/hero-poster.jpg" data-src="media/hero-fwd-3.mp4"></video>
+      <video id="vidR" class="hero-v" muted playsinline preload="auto" data-src="media/hero-rev-3.mp4"></video>
     </div>
     <p class="eyebrow eyebrow-hero"><span>EMET FORUM 2026</span> · Київ · 28 жовтня 2026</p>
     <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
@@ -1092,7 +1092,17 @@ window.__LEADS_URL='https://script.google.com/macros/s/AKfycbwsRSjle_67h2nZj17-b
     function blob(txt){var bin=atob(txt.trim()),n=bin.length,u8=new Uint8Array(n);
       for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
       return URL.createObjectURL(new Blob([u8],{type:'video/mp4'}));}
-    if(eF){F.src=blob(eF.textContent);eF.remove()}if(eR){R.src=blob(eR.textContent);eR.remove()}   // file build: src is already on the tag
+    if(eF){F.src=blob(eF.textContent);eF.remove()}if(eR){R.src=blob(eR.textContent);eR.remove()}
+    // file build: download each clip completely into memory first, then hand it to the player.
+    // iOS streams a file-backed <video> lazily, so a step that lands in a not-yet-buffered part of the
+    // clip (typically the last step back) stutters while it downloads. A blob plays from memory.
+    [F,R].forEach(function(v){
+      var u=v.getAttribute('data-src');if(!u)return;
+      var fallback=function(){if(!v.src){v.src=u;v.load()}};
+      if(!window.fetch||!window.URL||!URL.createObjectURL){fallback();return}
+      fetch(u,{cache:'force-cache'}).then(function(r){if(!r.ok)throw 0;return r.blob()})
+        .then(function(b){v.src=URL.createObjectURL(b);v.load()}).catch(fallback);
+    });
     (function(){var A=document.getElementById('amb-video'),eA=document.getElementById('srcA');
       if(!A)return;if(eA){A.src=blob(eA.textContent);eA.remove()}A.load();   // source is a file in the multi-file build
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
