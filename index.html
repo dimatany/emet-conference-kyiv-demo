@@ -377,6 +377,8 @@ form{display:grid;gap:14px}
 .form-foot{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:10px;text-align:center}
 .form-foot .btn:disabled{opacity:.6;cursor:default}
 .done{display:none;padding:22px;border:1px solid var(--turq);border-radius:6px;font-size:16px}
+.hp{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden}
+.btn[disabled]{opacity:.6;cursor:default}
 .done b{display:block;font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:-.03em;margin-bottom:6px}
 @media(max-width:860px){
   .tick{grid-template-columns:1fr}
@@ -877,10 +879,14 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
             <ul class="sel-list" id="spec-list" role="listbox" aria-labelledby="spec-lbl"></ul>
             <input type="hidden" name="spec" id="spec" value="Лікар-косметолог">
           </div></div>
+        <!-- attribution (filled from the URL on page load) + anti-spam trap -->
+        <input type="hidden" name="utm_source"><input type="hidden" name="utm_medium"><input type="hidden" name="utm_campaign"><input type="hidden" name="utm_content"><input type="hidden" name="utm_term">
+        <input type="hidden" name="gclid"><input type="hidden" name="fbclid"><input type="hidden" name="ttclid"><input type="hidden" name="page">
+        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
         <p class="consent">Надсилаючи форму, ви погоджуєтесь на обробку персональних даних. Третім особам їх не передаємо.</p>
         <div class="form-foot">
           <button class="btn" type="submit" id="submit">Надіслати</button>
-          <span class="consent" id="err" role="alert"></span>
+          <span class="consent" id="err" role="alert" aria-live="polite"></span>
         </div>
         <div class="done" id="done"><b>Заявку отримали</b>Зв’яжемось протягом робочого дня та надішлемо умови участі.</div>
       </form>
@@ -929,6 +935,7 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
 </footer>
 
 <script>
+window.__LEADS_URL='https://script.google.com/macros/s/AKfycbwsRSjle_67h2nZj17-bGw8ohyFv9hn8QaWPhLjIohIikpPHodrPgU-P6TNNnES6y54/exec';
 // A refresh always opens the page at the top (the browser would otherwise restore the last position
 // and honour a #section hash left by the menu). Direct links with a hash still land on their section.
 (function(){
@@ -1184,14 +1191,38 @@ footer .fine{flex:1;min-width:260px;font-size:12px;color:#55707C;line-height:1.5
   })();
 
   // ---- form ----
-  var f=document.getElementById('form'),err=document.getElementById('err');
+  var f=document.getElementById('form'),err=document.getElementById('err'),sub=document.getElementById('submit');
+  // attribution: utm/click ids from the URL are kept for the session so a form filled later still carries them
+  (function(){
+    var keys=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','fbclid','ttclid'],q=new URLSearchParams(location.search),store={};
+    try{store=JSON.parse(sessionStorage.getItem('emet_attr')||'{}')}catch(e){}
+    var fresh=false;keys.forEach(function(k){var v=q.get(k);if(v){store[k]=v;fresh=true}});
+    if(fresh){try{sessionStorage.setItem('emet_attr',JSON.stringify(store))}catch(e){}}
+    keys.forEach(function(k){if(f[k])f[k].value=store[k]||''});
+    if(f.page)f.page.value=location.href.split('#')[0];
+  })();
+  var opened=Date.now();
   f.addEventListener('submit',function(e){
     e.preventDefault();err.textContent='';
     var name=f.name.value.trim(),phone=f.phone.value.replace(/\D/g,'');
     if(name.length<2){err.textContent='Вкажіть ім’я.';f.name.focus();return}
     if(phone.length<10){err.textContent='Перевірте номер телефону.';f.phone.focus();return}
-    document.getElementById('submit').disabled=true;
-    document.getElementById('done').style.display='block';
+    if(f.email.value&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.value.trim())){err.textContent='Перевірте email.';f.email.focus();return}
+    var data={name:name,phone:f.phone.value.trim(),email:f.email.value.trim(),city:f.city.value.trim(),clinic:f.spec.value,
+      utm_source:f.utm_source.value,utm_medium:f.utm_medium.value,utm_campaign:f.utm_campaign.value,utm_content:f.utm_content.value,utm_term:f.utm_term.value,
+      gclid:f.gclid.value,fbclid:f.fbclid.value,ttclid:f.ttclid.value,page:f.page.value,website:f.website.value,elapsed:Date.now()-opened};
+    var url=window.__LEADS_URL||'';
+    function done(){sub.disabled=true;document.getElementById('done').style.display='block';if(window.__leadConversion)try{window.__leadConversion()}catch(e){}}
+    function fail(){sub.disabled=false;sub.textContent='Надіслати';err.textContent='Не вдалося надіслати. Спробуйте ще раз або зателефонуйте +38 (067) 880-77-00.'}
+    if(!url){done();return}
+    sub.disabled=true;sub.textContent='Надсилаємо…';
+    // text/plain keeps the request "simple" (no CORS preflight), which is what Apps Script web apps accept
+    fetch(url,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)})
+      .then(function(r){return r.json()}).then(function(j){if(j&&j.ok)done();else fail()})
+      .catch(function(){
+        // response unreadable (older browsers / opaque redirect): send blind and trust the sheet
+        fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)}).then(done,fail)
+      });
   });
 })();
 </script>
